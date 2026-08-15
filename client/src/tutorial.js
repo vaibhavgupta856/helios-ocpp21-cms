@@ -160,6 +160,16 @@ export const TUTORIAL_STEPS = [
     ],
   },
   {
+    id: 'stations-wss',
+    view: 'stations',
+    target: 'stations-wss',
+    title: 'Charge point WebSocket (OCPP 2.1)',
+    body: [
+      'Charge points (Voltforge) connect outbound. Copy the WSS base — no station ID — into Voltforge. Subprotocol is ocpp2.1.',
+      'Hosted: public HTTPS (no :9443). Local lab WSS is wss://127.0.0.1:9443/ocpp/2.1. The example full URL already appends the selected ID or VF-CP-21.',
+    ],
+  },
+  {
     id: 'stations-enroll',
     view: 'stations',
     target: 'stations-enroll',

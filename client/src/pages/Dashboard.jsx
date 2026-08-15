@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import ActionQueue from '../components/ActionQueue.jsx';
+import WssPairingCard from '../components/WssPairingCard.jsx';
 import { api, pretty, tokenLabel } from '../api.js';
 import { buildOrgTree } from '../org.js';
 import { isWalkHit } from '../agentWalk.js';
@@ -17,6 +18,8 @@ export default function Dashboard({
   navigate,
   can = () => false,
   walkFocus = null,
+  security,
+  selected,
 }) {
   const online = stations.filter((s) => s.online).length;
   const live = transactions.filter((t) => t.status && t.status !== 'Ended');
@@ -79,6 +82,7 @@ export default function Dashboard({
           </>
         }
       />
+      <WssPairingCard security={security} stationId={selected?.stationId} tour="dash-wss" />
       <div className="card advisor-card" data-tour="dash-advisor">
         <h3>Advisor</h3>
         {insights ? (

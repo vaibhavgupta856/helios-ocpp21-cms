@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import StationPicker from '../components/StationPicker.jsx';
+import WssPairingCard from '../components/WssPairingCard.jsx';
 import { api, pretty } from '../api.js';
 
 const DEMO_CERT = '-----BEGIN CERTIFICATE-----\nDEMO\n-----END CERTIFICATE-----';
@@ -57,6 +58,7 @@ export default function Security({
         title="Security & Certificates"
         subtitle="WSS profiles 0–2, lab CA download, and OCPP certificate operations"
       />
+      <WssPairingCard security={security} stationId={selected?.stationId} tour="security-wss" />
       <div className="card" data-tour="security-page">
         <h3>CSMS security profile</h3>
         <p className="muted">

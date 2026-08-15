@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
+import WssPairingCard, { CopyField } from '../components/WssPairingCard.jsx';
 import { api } from '../api.js';
 import { buildOrgTree, stationLabel } from '../org.js';
 import { isWalkHit } from '../agentWalk.js';
@@ -13,34 +14,6 @@ function connectionUrls(stationId, security) {
   const wss =
     security?.wss?.replace('{stationId}', id) || `wss://127.0.0.1:9443/ocpp/2.1/${id}`;
   return { wsUrl: ws, wssUrl: wss };
-}
-
-function CopyField({ label, value }) {
-  const [copied, setCopied] = useState(false);
-  if (!value) return null;
-  return (
-    <label className="field" style={{ minWidth: '100%' }}>
-      {label}
-      <div className="form-row" style={{ marginBottom: 0 }}>
-        <input readOnly value={value} onFocus={(e) => e.target.select()} />
-        <button
-          type="button"
-          className="btn"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(value);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1200);
-            } catch {
-              /* ignore */
-            }
-          }}
-        >
-          {copied ? 'Copied' : 'Copy'}
-        </button>
-      </div>
-    </label>
-  );
 }
 
 export default function Stations({
@@ -247,7 +220,7 @@ export default function Stations({
       setSelectedStationId(data.station.stationId);
       setOpenSiteId(data.station.siteId || site?.id || activeSiteId);
       setAddingSiteId('');
-      setNotice(`Added charge point ${data.station.stationId} at ${stationLabel(data.station) || site?.name || 'station'} — copy the WSS URL onto the charge point`);
+      setNotice(`Added charge point ${data.station.stationId} at ${stationLabel(data.station) || site?.name || 'station'} — copy the WSS base into Voltforge`);
       setError('');
       refresh();
     } catch (err) {
@@ -358,26 +331,7 @@ export default function Stations({
           </>
         }
       />
-      <div className="card" data-tour="stations-wss">
-        <h3>Voltforge WSS base</h3>
-        <p className="muted">
-          Paste this <strong>base only</strong> into Voltforge. Voltforge appends{' '}
-          <code>/{'{ChargePointId}'}</code>. Subprotocol <code>ocpp2.1</code>.
-          {security?.cloud
-            ? ' Hosted: public HTTPS (Render TLS). Do not use port 9443. Trust the public certificate — do not skip TLS.'
-            : ' Local lab TLS is port 9443. Hosted CSMS uses the public HTTPS port instead.'}
-        </p>
-        <CopyField
-          label="Charge point WSS base (no station ID)"
-          value={security?.wssBase || 'wss://127.0.0.1:9443/ocpp/2.1'}
-        />
-        {!security?.cloud ? (
-          <CopyField
-            label="Plain WS base (local lab only)"
-            value={security?.wsBase || 'ws://127.0.0.1:9090/ocpp/2.1'}
-          />
-        ) : null}
-      </div>
+      <WssPairingCard security={security} stationId={selected?.stationId || newId} tour="stations-wss" />
       {canEnroll || canTenant || canSite ? (
       <div className="card" data-tour="stations-enroll">
         <h3>Add charging point</h3>
@@ -758,19 +712,9 @@ export default function Stations({
                 </label>
                 ) : null}
                 <CopyField
-                  label="Voltforge WSS base (no station ID)"
-                  value={security?.wssBase || 'wss://127.0.0.1:9443/ocpp/2.1'}
-                />
-                <CopyField
                   label="Full WSS URL (ID already appended)"
                   value={selected.wssUrl || connectionUrls(selected.stationId, security).wssUrl}
                 />
-                {!security?.cloud ? (
-                  <CopyField
-                    label="Plain WS base (local lab only)"
-                    value={security?.wsBase || 'ws://127.0.0.1:9090/ocpp/2.1'}
-                  />
-                ) : null}
                 <div className="evse-pills" style={{ marginTop: '0.75rem' }}>
                   {(selected.evses || []).length === 0 && <span className="muted">No EVSE status yet</span>}
                   {(selected.evses || []).map((e) => (
