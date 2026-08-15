@@ -25,9 +25,10 @@ export const TUTORIAL_STEPS = [
     id: 'theme',
     view: 'dashboard',
     target: 'theme',
+    cycleThemes: true,
     title: 'Theme',
     body: [
-      'Switch Helios, Dark, Midnight, Forest, Sand, or Violet. The choice stays in this browser.',
+      'We will cycle every look — Helios, Dark, Midnight, Forest, Sand, and Violet — so you can see them all. Pick one anytime in the header. The choice stays in this browser.',
     ],
   },
   {

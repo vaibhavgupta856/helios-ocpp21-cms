@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { THEMES, readTheme, applyTheme } from '../theme.js';
 
 export default function Header({
@@ -16,6 +16,15 @@ export default function Header({
   view,
 }) {
   const [theme, setTheme] = useState(readTheme);
+
+  useEffect(() => {
+    const sync = (e) => {
+      if (typeof e.detail === 'string') setTheme(e.detail);
+    };
+    window.addEventListener('cms-theme', sync);
+    return () => window.removeEventListener('cms-theme', sync);
+  }, []);
+
   return (
     <header className="cms-top">
       <div className="brand-block" data-tour="brand">

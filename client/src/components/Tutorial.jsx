@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { TUTORIAL_STEPS } from '../tutorial.js';
 import { NAV, HIDDEN_VIEWS } from '../nav.js';
+import { startThemeTourCycle } from '../theme.js';
 
 const GAP = 18;
 const PAD = 14;
@@ -294,6 +295,11 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
     window.dispatchEvent(new CustomEvent('massive-tutorial', { detail: { llmOpen: false, step: null } }));
     return undefined;
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !step?.cycleThemes) return undefined;
+    return startThemeTourCycle();
+  }, [open, step]);
 
   if (!open || !step) return null;
 
