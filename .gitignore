@@ -1,0 +1,9 @@
+node_modules/
+client/node_modules/
+client/dist/
+*.log
+.DS_Store
+certs/
+*.pem
+security.json
+llm.json

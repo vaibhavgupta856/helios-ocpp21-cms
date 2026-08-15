@@ -1,0 +1,19 @@
+# Render Blueprint — Helios OCPP 2.1 CSMS
+# Central system only. Charge points (Voltforge) are a different service.
+
+services:
+  - type: web
+    name: helios-ocpp21-cms
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm run install:all && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CMS_ENABLE_LAB_TLS
+        value: '0'
+      # Public WSS URL uses RENDER_EXTERNAL_HOSTNAME. Override with CMS_PUBLIC_HOST
+      # (hostname only) or CMS_PUBLIC_WSS (full wss://host/ocpp/2.1) for a custom domain.
