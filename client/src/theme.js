@@ -37,7 +37,7 @@ export function applyStoredTheme() {
 }
 
 /** Soft tour loop through every look. Caller must invoke the returned stop (restores `saved`). */
-export function startThemeTourCycle(intervalMs = 1400) {
+export function startThemeTourCycle(intervalMs = 850) {
   const ids = THEMES.map((t) => t.id);
   const saved = readTheme();
   let i = 0;

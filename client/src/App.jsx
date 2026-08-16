@@ -517,7 +517,7 @@ export default function App() {
   const onlineCount = scoped.stations.filter((s) => s.online).length;
 
   return (
-    <div className={`cms-shell ${hud ? 'has-agent-hud' : ''}${tutorialOpen ? ' tour-on' : ''}`}>
+    <div className={`cms-shell${hud ? ' has-agent-hud' : ''}${tutorialOpen ? ' tour-on' : ''}${navOpen ? ' nav-open' : ''}`}>
       <Header
         stationCount={scoped.stations.length}
         siteCount={scoped.sites.length}

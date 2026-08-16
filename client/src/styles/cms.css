@@ -1,6 +1,7 @@
 .cms-shell {
   height: 100vh;
   height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -39,8 +40,8 @@
 
 .nav-toggle {
   display: none;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -585,7 +586,7 @@
 }
 
 .pairing-card .form-row {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .pairing-card .form-row input {
@@ -1772,7 +1773,7 @@ pre.payload {
 
 .site-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 0.85rem;
   margin-bottom: 0.85rem;
 }
@@ -1846,7 +1847,11 @@ pre.payload {
   .cms-top .btn,
   .top-meta .btn,
   .table-wrap .btn,
-  .roles-actions .btn {
+  .roles-actions .btn,
+  .tour-nav .btn,
+  .chip-pick,
+  .twin-alarm-filters .chip-pick,
+  .assistant-chips .btn {
     width: auto;
   }
 
@@ -1875,14 +1880,14 @@ pre.payload {
 
 .day-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 0.85rem;
   margin-bottom: 0.85rem;
 }
 
 .forecast-station-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 0.75rem;
   margin: 0.4rem 0 1rem;
 }
@@ -2597,7 +2602,7 @@ button.chip-pick {
 
 .role-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -3231,8 +3236,12 @@ tr.walk-pulse {
   letter-spacing: -0.03em;
 }
 
-.twin-swatch.empty {
-  background: #64748b;
+.twin-legend .twin-swatch {
+  padding: 0;
+  margin: 0;
+  font-size: 0;
+  line-height: 0;
+  text-align: left;
 }
 
 .twin-map-card:hover,
@@ -3323,5 +3332,355 @@ tr.walk-pulse {
 
   .stat-card {
     padding: 0.65rem 0.7rem 0.6rem;
+  }
+}
+
+.cms-shell.tour-on .cms-main {
+  padding-bottom: max(2.1rem, calc(var(--tour-sheet-h, 0px) + 1.4rem + var(--safe-bottom)));
+}
+
+.cms-shell.tour-on [data-tour] {
+  scroll-margin-top: 4.5rem;
+  scroll-margin-bottom: calc(var(--tour-sheet-h, 0px) + 1.25rem);
+}
+
+.tour-card.is-sheet {
+  left: 12px;
+  right: 12px;
+  top: auto;
+  bottom: max(10px, var(--safe-bottom));
+  width: auto;
+  max-width: none;
+  max-height: min(50vh, 22rem);
+  border-radius: 16px 16px 12px 12px;
+  padding-bottom: 0.85rem;
+}
+
+.tour-card.is-sheet .tour-caret {
+  display: none;
+}
+
+.pairing-host,
+.pairing-host code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.product-identity {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1100px) {
+  .cms-shell.tour-on.nav-open .tour-dim {
+    left: min(280px, 86vw);
+  }
+
+  .cms-shell.tour-on.nav-open .nav-scrim {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .cms-top {
+    padding: 0.35rem 0.7rem;
+    padding-left: max(0.7rem, var(--safe-left));
+    padding-right: max(0.7rem, var(--safe-right));
+  }
+
+  .brand-mark {
+    width: 26px;
+    height: 26px;
+  }
+
+  .brand-name {
+    font-size: 1.02rem;
+  }
+
+  .nav-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .top-meta {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.35rem;
+  }
+
+  .btn.ask-helios,
+  .btn.tour-launch,
+  .meta-pill {
+    min-height: 44px;
+  }
+
+  .theme-switch,
+  .user-switch {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .theme-switch select,
+  .user-switch select {
+    font-size: 16px;
+    min-height: 44px;
+    max-width: min(46vw, 168px);
+    min-width: 0;
+  }
+
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .pairing-card .form-row input {
+    font-size: 16px;
+  }
+
+  .chip-pick,
+  .mode-switch button {
+    min-height: 44px;
+  }
+
+  .tour-nav {
+    gap: 0.45rem;
+  }
+
+  .tour-nav .btn,
+  .tour-nav-end .btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.45rem 0.85rem;
+    width: auto;
+  }
+
+  .cms-main {
+    padding: 0.85rem 0.75rem;
+    padding-bottom: max(1.6rem, calc(1rem + var(--safe-bottom)));
+    padding-left: max(0.75rem, var(--safe-left));
+    padding-right: max(0.75rem, var(--safe-right));
+  }
+
+  .cms-shell.tour-on .cms-main {
+    padding-bottom: max(1.6rem, calc(var(--tour-sheet-h, 0px) + 1.2rem + var(--safe-bottom)));
+  }
+
+  .assistant-page {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .chat-rail,
+  .assistant-main {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .chat-rail {
+    max-height: 9.5rem;
+    flex: 0 0 auto;
+  }
+
+  .assistant-main {
+    overflow: visible;
+  }
+
+  .assistant-thread {
+    overflow: visible;
+  }
+
+  .page-head-actions {
+    width: 100%;
+  }
+
+  .mode-switch {
+    width: 100%;
+  }
+
+  .mode-switch button {
+    flex: 1 1 auto;
+  }
+
+  .ask-tour-feed {
+    width: 100%;
+  }
+
+  .table-wrap,
+  .card:has(table.data) {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  table.data {
+    min-width: 32rem;
+  }
+
+  .roles-users {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .roles-users thead {
+    display: none;
+  }
+
+  .roles-users,
+  .roles-users tbody,
+  .roles-users tr,
+  .roles-users td {
+    display: block;
+  }
+
+  .roles-users tr {
+    border: 1px solid var(--steel);
+    border-radius: 10px;
+    padding: 0.7rem 0.75rem;
+    margin-bottom: 0.55rem;
+    background: var(--bg-panel);
+  }
+
+  .roles-users td {
+    padding: 0.28rem 0;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .roles-users td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 0.18rem;
+  }
+
+  .roles-users td:empty::before,
+  .roles-users td:not([data-label])::before {
+    display: none;
+  }
+
+  .roles-actions {
+    width: 100%;
+    white-space: normal;
+    padding-top: 0.45rem;
+  }
+
+  .roles-actions .btn {
+    min-height: 44px;
+    width: 100%;
+  }
+
+  .role-select {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .assign-cell {
+    max-width: none;
+  }
+
+  .role-card,
+  .role-actor {
+    min-width: 0;
+  }
+
+  .perm-matrix {
+    min-width: 36rem;
+  }
+
+  .twin-legend {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.28rem 0.5rem;
+    max-width: min(12rem, calc(100% - 3.2rem));
+    bottom: 1.45rem;
+    left: 0.5rem;
+    padding: 0.4rem 0.55rem;
+    border-radius: 8px;
+    white-space: normal;
+  }
+
+  .twin-key {
+    white-space: normal;
+  }
+
+  .twin-map-stage {
+    height: min(360px, 48vh);
+    min-height: 240px;
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+  }
+
+  .twin-split {
+    min-height: 0;
+  }
+
+  .pairing-card-head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .slot-reply {
+    flex-wrap: wrap;
+  }
+
+  .slot-reply input {
+    min-width: 0;
+    flex: 1 1 12rem;
+  }
+
+  .agent-hud {
+    left: max(10px, var(--safe-left));
+    right: max(10px, var(--safe-right));
+  }
+}
+
+@media (max-width: 420px) {
+  .meta-protocol,
+  .meta-stations {
+    display: none;
+  }
+
+  .brand-sub {
+    display: none;
+  }
+
+  .theme-switch select {
+    max-width: min(42vw, 132px);
+  }
+
+  .user-switch select {
+    max-width: min(48vw, 148px);
+  }
+
+  .top-pills {
+    flex: 1 1 auto;
+  }
+
+  .cms-top {
+    gap: 0.45rem 0.55rem;
+  }
+
+  .stat-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+  }
+
+  .twin-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .tour-card.is-sheet {
+    left: 8px;
+    right: 8px;
+    max-height: min(48vh, 20rem);
   }
 }

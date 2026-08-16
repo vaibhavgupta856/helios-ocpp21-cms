@@ -185,11 +185,11 @@ export default function Roles({
             <tbody>
               {users.map((u) => (
                 <tr key={u.id} className={u.id === me?.id ? 'selected' : ''}>
-                  <td>
+                  <td data-label="Name">
                     <strong>{u.name}</strong>
                     <div className="muted">{u.email}</div>
                   </td>
-                  <td>
+                  <td data-label="Role">
                     {canWrite ? (
                       <select
                         className="role-select"
@@ -210,7 +210,7 @@ export default function Roles({
                       <RoleBadge role={u.role} label={u.roleLabel} />
                     )}
                   </td>
-                  <td>
+                  <td data-label="Assignment">
                     {u.role === 'super_admin' || u.role === 'admin' ? (
                       <span className="muted">All tenants &amp; stations</span>
                     ) : canWrite ? (
@@ -240,7 +240,7 @@ export default function Roles({
                     )}
                   </td>
                   {canWrite ? (
-                    <td className="roles-actions">
+                    <td className="roles-actions" data-label="Actions">
                       <button
                         type="button"
                         className="btn"

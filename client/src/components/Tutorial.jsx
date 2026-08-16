@@ -8,6 +8,9 @@ const PAD = 14;
 const CARD_W = 392;
 const CARET = 12;
 const CARET_INSET = 22;
+const SHEET_MQ = 720;
+const SIDE_NEED = 260;
+const VIEW_GUTTER = 24;
 
 function canSeeView(can, view, require) {
   if (typeof can === 'function' && require && !can(require)) return false;
@@ -42,6 +45,52 @@ function findTarget(id) {
 
 function along(min, value, max) {
   return Math.round(Math.min(Math.max(min, value), max));
+}
+
+function cardWidth() {
+  return Math.min(CARD_W, Math.max(220, window.innerWidth - VIEW_GUTTER));
+}
+
+function shouldDockSheet(target) {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (vw <= SHEET_MQ) return true;
+  if (!target) return false;
+  const rightSpace = vw - target.right - GAP - PAD;
+  const leftSpace = target.left - GAP - PAD;
+  const bottomSpace = vh - target.bottom - GAP - PAD;
+  const topSpace = target.top - GAP - PAD;
+  const sideOk = rightSpace >= SIDE_NEED || leftSpace >= SIDE_NEED;
+  const vertOk = bottomSpace >= 140 || topSpace >= 140;
+  return !sideOk && !vertOk;
+}
+
+function clampSpot(r, sheet, radius) {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const pad = 8;
+  let left = r.left - pad;
+  let top = r.top - pad;
+  let width = r.width + pad * 2;
+  let height = r.height + pad * 2;
+  const sheetH = sheet ? Math.round(vh * 0.46) : 0;
+  const maxW = Math.min(vw - 16, sheet ? Math.max(120, vw * 0.84) : vw - 16);
+  const maxH = Math.min(vh - 16, sheet ? Math.max(64, vh - sheetH - 28) : vh - 16);
+  if (width > maxW) {
+    left += (width - maxW) / 2;
+    width = maxW;
+  }
+  if (height > maxH) height = maxH;
+  left = Math.min(Math.max(8, left), Math.max(8, vw - width - 8));
+  top = Math.min(Math.max(8, top), Math.max(8, vh - height - 8 - (sheet ? 12 : 0)));
+  if (sheet && top + height > vh - sheetH - 10) {
+    top = Math.max(8, vh - sheetH - height - 12);
+  }
+  return { left, top, width, height, radius };
+}
+
+function setSheetVar(px) {
+  document.documentElement.style.setProperty('--tour-sheet-h', `${Math.max(0, Math.round(px))}px`);
 }
 
 function withCaret(placed, target, cardW, cardH) {
@@ -144,22 +193,30 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
   const measure = useCallback(() => {
     if (!open || !step) return false;
     const el = findTarget(step.target);
-    const cardW = Math.min(CARD_W, window.innerWidth - PAD * 2);
-    const cardH = Math.min(cardRef.current?.offsetHeight || 280, window.innerHeight * 0.7);
+    const cardW = cardWidth();
+    const sheetHCap = window.innerHeight * 0.5;
+    const cardH = Math.min(cardRef.current?.offsetHeight || 280, sheetHCap);
+    const sheet = shouldDockSheet(el ? el.getBoundingClientRect() : null);
+    if (sheet) setSheetVar(cardRef.current?.offsetHeight || Math.min(280, sheetHCap));
+    else setSheetVar(0);
     if (!el) {
       setSpot((prev) => (prev ? null : prev));
       setCardPos((prev) => {
-        const next = {
-          left: Math.max(PAD, (window.innerWidth - cardW) / 2),
-          top: Math.max(88, (window.innerHeight - cardH) / 3),
-          side: 'bottom',
-          caretLeft: cardW / 2 - CARET / 2,
-          caretTop: -CARET / 2,
-        };
+        const next = sheet
+          ? { left: 12, top: 0, side: 'sheet', sheet: true, caretLeft: 0, caretTop: 0 }
+          : {
+              left: Math.max(PAD, (window.innerWidth - cardW) / 2),
+              top: Math.max(88, (window.innerHeight - cardH) / 3),
+              side: 'bottom',
+              sheet: false,
+              caretLeft: cardW / 2 - CARET / 2,
+              caretTop: -CARET / 2,
+            };
         if (
           prev.left === next.left &&
           prev.top === next.top &&
           prev.side === next.side &&
+          prev.sheet === next.sheet &&
           prev.caretLeft === next.caretLeft &&
           prev.caretTop === next.caretTop
         ) {
@@ -170,14 +227,8 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       return false;
     }
     const r = el.getBoundingClientRect();
-    const pad = 8;
-    const nextSpot = {
-      left: Math.max(4, r.left - pad),
-      top: Math.max(4, r.top - pad),
-      width: Math.min(window.innerWidth - 8, r.width + pad * 2),
-      height: Math.min(window.innerHeight - 8, r.height + pad * 2),
-      radius: Math.min(16, Math.max(10, parseFloat(getComputedStyle(el).borderRadius) || 12)),
-    };
+    const radius = Math.min(16, Math.max(10, parseFloat(getComputedStyle(el).borderRadius) || 12));
+    const nextSpot = clampSpot(r, sheet, radius);
     setSpot((prev) =>
       prev &&
       prev.left === nextSpot.left &&
@@ -187,11 +238,14 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
         ? prev
         : nextSpot
     );
-    const placed = placeCard(r, cardW, cardH);
+    const placed = sheet
+      ? { left: 12, top: 0, side: 'sheet', sheet: true, caretLeft: 0, caretTop: 0 }
+      : { ...placeCard(r, cardW, cardH), sheet: false };
     setCardPos((prev) =>
       prev.left === placed.left &&
       prev.top === placed.top &&
       prev.side === placed.side &&
+      prev.sheet === placed.sheet &&
       prev.caretLeft === placed.caretLeft &&
       prev.caretTop === placed.caretTop
         ? prev
@@ -205,6 +259,7 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       setIndex(0);
       setSpot(null);
       setReady(false);
+      setSheetVar(0);
       return undefined;
     }
     setIndex(0);
@@ -224,10 +279,10 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       if (step.view) navigate(step.view);
       await wait(step.openNav ? 220 : 400);
       if (cancelled) return;
-      if (step.openNav) onOpenNav?.(true);
-      else if (window.innerWidth > 1100) onOpenNav?.(false);
+      onOpenNav?.(!!step.openNav);
       const el = findTarget(step.target);
-      el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+      const mobile = window.innerWidth <= SHEET_MQ;
+      el?.scrollIntoView({ block: mobile ? 'center' : 'nearest', inline: 'nearest', behavior: 'smooth' });
       await wait(el ? 300 : 50);
       if (cancelled) return;
       for (const delay of [0, 180, 400, 700]) {
@@ -257,6 +312,8 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
     };
     window.addEventListener('resize', onWin);
     window.addEventListener('scroll', onWin, true);
+    window.visualViewport?.addEventListener('resize', onWin);
+    window.visualViewport?.addEventListener('scroll', onWin);
     const root = document.querySelector('main.cms-main') || document.body;
     const mo = new MutationObserver(onWin);
     mo.observe(root, { childList: true, subtree: true });
@@ -267,6 +324,8 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       mo.disconnect();
       window.removeEventListener('resize', onWin);
       window.removeEventListener('scroll', onWin, true);
+      window.visualViewport?.removeEventListener('resize', onWin);
+      window.visualViewport?.removeEventListener('scroll', onWin);
     };
   }, [open, measure, index]);
 
@@ -304,10 +363,11 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
   if (!open || !step) return null;
 
   const last = index >= steps.length - 1;
-  const cardW = Math.min(CARD_W, window.innerWidth - PAD * 2);
+  const sheet = !!cardPos.sheet;
+  const cardW = cardWidth();
 
   return (
-    <div className={`tour${ready ? ' is-ready' : ''}`} role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div className={`tour${ready ? ' is-ready' : ''}${sheet ? ' is-sheet' : ''}`} role="dialog" aria-modal="true" aria-labelledby="tour-title">
       <div className="tour-dim" />
       {spot ? (
         <div
@@ -323,14 +383,16 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       ) : null}
       <aside
         ref={cardRef}
-        className={`tour-card side-${cardPos.side}`}
-        style={{ left: cardPos.left, top: cardPos.top, width: cardW }}
+        className={`tour-card side-${cardPos.side}${sheet ? ' is-sheet' : ''}`}
+        style={sheet ? undefined : { left: cardPos.left, top: cardPos.top, width: cardW }}
       >
-        <span
-          className="tour-caret"
-          aria-hidden
-          style={{ left: cardPos.caretLeft ?? CARET_INSET, top: cardPos.caretTop ?? -CARET / 2 }}
-        />
+        {sheet ? null : (
+          <span
+            className="tour-caret"
+            aria-hidden
+            style={{ left: cardPos.caretLeft ?? CARET_INSET, top: cardPos.caretTop ?? -CARET / 2 }}
+          />
+        )}
         <div className="tour-progress" aria-hidden>
           <span style={{ width: `${((index + 1) / steps.length) * 100}%` }} />
         </div>
