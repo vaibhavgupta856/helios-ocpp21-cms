@@ -2855,10 +2855,6 @@ button.chip-pick {
     grid-template-columns: 1fr;
   }
 
-  .roles-users {
-    min-width: 520px;
-  }
-
   .assign-cell {
     max-width: none;
   }
@@ -3720,5 +3716,11 @@ tr.walk-pulse {
     left: 8px;
     right: 8px;
     max-height: min(48vh, 20rem);
+  }
+
+  .product-identity {
+    font-size: 0.58rem;
+    padding-top: 0.18rem;
+    padding-bottom: 0.18rem;
   }
 }

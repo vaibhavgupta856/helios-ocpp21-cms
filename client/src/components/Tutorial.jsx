@@ -194,10 +194,9 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
     if (!open || !step) return false;
     const el = findTarget(step.target);
     const cardW = cardWidth();
-    const sheetHCap = window.innerHeight * 0.5;
-    const cardH = Math.min(cardRef.current?.offsetHeight || 280, sheetHCap);
     const sheet = shouldDockSheet(el ? el.getBoundingClientRect() : null);
-    if (sheet) setSheetVar(cardRef.current?.offsetHeight || Math.min(280, sheetHCap));
+    const cardH = Math.min(cardRef.current?.offsetHeight || 280, window.innerHeight * (sheet ? 0.5 : 0.7));
+    if (sheet) setSheetVar(cardRef.current?.offsetHeight || Math.min(280, window.innerHeight * 0.5));
     else setSheetVar(0);
     if (!el) {
       setSpot((prev) => (prev ? null : prev));
@@ -281,8 +280,8 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       if (cancelled) return;
       onOpenNav?.(!!step.openNav);
       const el = findTarget(step.target);
-      const mobile = window.innerWidth <= SHEET_MQ;
-      el?.scrollIntoView({ block: mobile ? 'center' : 'nearest', inline: 'nearest', behavior: 'smooth' });
+      const sheet = shouldDockSheet(el ? el.getBoundingClientRect() : null);
+      el?.scrollIntoView({ block: sheet ? 'center' : 'nearest', inline: 'nearest', behavior: 'smooth' });
       await wait(el ? 300 : 50);
       if (cancelled) return;
       for (const delay of [0, 180, 400, 700]) {
