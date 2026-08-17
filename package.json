@@ -13,7 +13,8 @@
     "client": "npm run dev --prefix client",
     "build": "npm run build --prefix client",
     "start": "node server/index.js",
-    "install:all": "npm install && npm install --prefix client --include=dev"
+    "install:all": "npm install && npm install --prefix client --include=dev",
+    "tour:voice": "node scripts/generate-tour-voice.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

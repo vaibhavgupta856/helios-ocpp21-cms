@@ -3208,6 +3208,32 @@ tr.walk-pulse {
   font-size: 0.78rem;
 }
 
+.tour audio {
+  display: none;
+}
+
+.tour-card.is-start {
+  left: 50%;
+  top: 42%;
+  width: min(392px, calc(100vw - 24px));
+  transform: translate(-50%, -50%);
+}
+
+.tour.is-ready .tour-card.is-start {
+  transform: translate(-50%, -50%);
+}
+
+.tour-nav-start {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tour-nav .btn.is-muted {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
 @media (max-width: 700px) {
   .tour-launch {
     padding: 0.28rem 0.6rem;

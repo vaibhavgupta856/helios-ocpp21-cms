@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { TUTORIAL_STEPS } from '../tutorial.js';
+import { TUTORIAL_STEPS, tourCardLines } from '../tutorial.js';
 import { NAV, HIDDEN_VIEWS } from '../nav.js';
 import { startThemeTourCycle } from '../theme.js';
+import { useTourVoice } from '../hooks/useTourVoice.js';
 
 const GAP = 18;
 const PAD = 14;
@@ -183,15 +184,61 @@ function wait(ms) {
 
 export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
   const steps = stepsFor(can);
+  const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
   const [spot, setSpot] = useState(null);
   const [cardPos, setCardPos] = useState({ left: 24, top: 88, side: 'right' });
-  const [ready, setReady] = useState(false);
+  const [readyId, setReadyId] = useState(null);
+  const [muted, setMuted] = useState(false);
   const cardRef = useRef(null);
-  const step = steps[index] || steps[0];
+  const enteredIdRef = useRef(null);
+  const indexRef = useRef(0);
+  const stepsRef = useRef(steps);
+  const navigateRef = useRef(navigate);
+  const onOpenNavRef = useRef(onOpenNav);
+  const onCloseRef = useRef(onClose);
+  stepsRef.current = steps;
+  navigateRef.current = navigate;
+  onOpenNavRef.current = onOpenNav;
+  onCloseRef.current = onClose;
+  indexRef.current = index;
+
+  const step = started ? steps[index] || steps[0] : null;
+  const stepId = step?.id || null;
+  const last = started && index >= steps.length - 1;
+  const ready = Boolean(started && stepId && readyId === stepId);
+
+  const goNext = useCallback(() => {
+    const list = stepsRef.current;
+    const n = indexRef.current;
+    if (n >= list.length - 1) {
+      onCloseRef.current();
+      return;
+    }
+    setIndex(n + 1);
+  }, []);
+
+  const goBack = useCallback(() => {
+    setIndex(Math.max(0, indexRef.current - 1));
+  }, []);
+
+  const skip = useCallback(() => {
+    onCloseRef.current();
+  }, []);
+
+  const goNextRef = useRef(goNext);
+  goNextRef.current = goNext;
+
+  const { audioRef, unlock, stop } = useTourVoice({
+    enabled: Boolean(open && started),
+    stepId,
+    ready,
+    muted,
+    onAutoNext: () => goNextRef.current(),
+  });
 
   const measure = useCallback(() => {
-    if (!open || !step) return false;
+    if (!open || !started || !step) return false;
     const el = findTarget(step.target);
     const cardW = cardWidth();
     const sheet = shouldDockSheet(el ? el.getBoundingClientRect() : null);
@@ -251,35 +298,56 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
         : placed
     );
     return true;
-  }, [open, step]);
+  }, [open, started, stepId, step]);
+
+  const measureRef = useRef(measure);
+  measureRef.current = measure;
 
   useEffect(() => {
     if (!open) {
+      setStarted(false);
       setIndex(0);
       setSpot(null);
-      setReady(false);
+      setReadyId(null);
+      setMuted(false);
+      enteredIdRef.current = null;
       setSheetVar(0);
+      window.dispatchEvent(new CustomEvent('massive-tutorial', { detail: { llmOpen: false, step: null } }));
       return undefined;
     }
+    setStarted(false);
     setIndex(0);
+    setReadyId(null);
+    enteredIdRef.current = null;
     return undefined;
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open || !started || !stepId) {
+      setReadyId(null);
+      return;
+    }
+    if (enteredIdRef.current !== stepId) setReadyId(null);
+  }, [open, started, stepId]);
+
   useEffect(() => {
-    if (!open || !step) return undefined;
-    let cancelled = false;
-    setReady(false);
+    if (!open || !started || !stepId) return undefined;
+    const current = stepsRef.current.find((s) => s.id === stepId);
+    if (!current) return undefined;
+    enteredIdRef.current = stepId;
+    setReadyId(null);
     window.dispatchEvent(
       new CustomEvent('massive-tutorial', {
-        detail: { llmOpen: false, step: step.id },
+        detail: { llmOpen: false, step: current.id },
       })
     );
+    let cancelled = false;
     (async () => {
-      if (step.view) navigate(step.view);
-      await wait(step.openNav ? 220 : 400);
+      if (current.view) navigateRef.current(current.view);
+      await wait(current.openNav ? 220 : 400);
       if (cancelled) return;
-      onOpenNav?.(!!step.openNav);
-      const el = findTarget(step.target);
+      onOpenNavRef.current?.(!!current.openNav);
+      const el = findTarget(current.target);
       const sheet = shouldDockSheet(el ? el.getBoundingClientRect() : null);
       el?.scrollIntoView({ block: sheet ? 'center' : 'nearest', inline: 'nearest', behavior: 'smooth' });
       await wait(el ? 300 : 50);
@@ -287,26 +355,26 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       for (const delay of [0, 180, 400, 700]) {
         if (delay) await wait(delay);
         if (cancelled) return;
-        if (measure()) break;
+        if (measureRef.current()) break;
       }
       if (!cancelled) {
-        measure();
-        setReady(true);
+        measureRef.current();
+        setReadyId(stepId);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, index, step, navigate, onOpenNav, measure]);
+  }, [open, started, stepId]);
 
   useLayoutEffect(() => {
-    if (!open) return undefined;
+    if (!open || !started) return undefined;
     let raf = 0;
     const onWin = () => {
       if (raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0;
-        measure();
+        measureRef.current();
       });
     };
     window.addEventListener('resize', onWin);
@@ -316,7 +384,7 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
     const root = document.querySelector('main.cms-main') || document.body;
     const mo = new MutationObserver(onWin);
     mo.observe(root, { childList: true, subtree: true });
-    const t = requestAnimationFrame(measure);
+    const t = requestAnimationFrame(() => measureRef.current());
     return () => {
       cancelAnimationFrame(t);
       if (raf) cancelAnimationFrame(raf);
@@ -326,49 +394,58 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       window.visualViewport?.removeEventListener('resize', onWin);
       window.visualViewport?.removeEventListener('scroll', onWin);
     };
-  }, [open, measure, index]);
+  }, [open, started, stepId]);
 
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        stop();
+        skip();
       }
+      if (!started) return;
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setIndex((n) => Math.min(steps.length - 1, n + 1));
+        stop();
+        goNext();
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setIndex((n) => Math.max(0, n - 1));
+        stop();
+        goBack();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose, steps.length]);
+  }, [open, started, skip, goNext, goBack, stop]);
 
   useEffect(() => {
-    if (open) return undefined;
-    window.dispatchEvent(new CustomEvent('massive-tutorial', { detail: { llmOpen: false, step: null } }));
-    return undefined;
-  }, [open]);
-
-  useEffect(() => {
-    if (!open || !step?.cycleThemes) return undefined;
+    if (!open || !started || !step?.cycleThemes) return undefined;
     return startThemeTourCycle();
-  }, [open, step]);
+  }, [open, started, stepId, step?.cycleThemes]);
 
-  if (!open || !step) return null;
+  const startTour = async () => {
+    await unlock();
+    setStarted(true);
+  };
 
-  const last = index >= steps.length - 1;
-  const sheet = !!cardPos.sheet;
+  if (!open) return null;
+
+  const sheet = Boolean(started && cardPos.sheet);
   const cardW = cardWidth();
+  const cardVisible = !started || ready;
 
   return (
-    <div className={`tour${ready ? ' is-ready' : ''}${sheet ? ' is-sheet' : ''}`} role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div
+      className={`tour${cardVisible ? ' is-ready' : ''}${sheet ? ' is-sheet' : ''}${started ? '' : ' is-start'}`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tour-title"
+    >
+      <audio ref={audioRef} preload="auto" playsInline />
       <div className="tour-dim" />
-      {spot ? (
+      {started && spot ? (
         <div
           className="tour-spot"
           style={{
@@ -382,47 +459,89 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       ) : null}
       <aside
         ref={cardRef}
-        className={`tour-card side-${cardPos.side}${sheet ? ' is-sheet' : ''}`}
-        style={sheet ? undefined : { left: cardPos.left, top: cardPos.top, width: cardW }}
+        className={`tour-card side-${started ? cardPos.side : 'bottom'}${sheet ? ' is-sheet' : ''}${started ? '' : ' is-start'}`}
+        style={started ? (sheet ? undefined : { left: cardPos.left, top: cardPos.top, width: cardW }) : undefined}
       >
-        {sheet ? null : (
+        {started && !sheet ? (
           <span
             className="tour-caret"
             aria-hidden
             style={{ left: cardPos.caretLeft ?? CARET_INSET, top: cardPos.caretTop ?? -CARET / 2 }}
           />
-        )}
-        <div className="tour-progress" aria-hidden>
-          <span style={{ width: `${((index + 1) / steps.length) * 100}%` }} />
-        </div>
-        <p className="tour-kicker">
-          Tutorial · {index + 1} of {steps.length}
-        </p>
-        <h2 id="tour-title">{step.title}</h2>
+        ) : null}
+        {started ? (
+          <div className="tour-progress" aria-hidden>
+            <span style={{ width: `${((index + 1) / steps.length) * 100}%` }} />
+          </div>
+        ) : null}
+        <p className="tour-kicker">{started ? `Tutorial · ${index + 1} of ${steps.length}` : 'Helios tour'}</p>
+        <h2 id="tour-title">{started ? step.title : "Hey — let's look around"}</h2>
         <div className="tour-body">
-          {(step.body || []).map((p) => (
-            <p key={p}>{p}</p>
-          ))}
+          {started ? (
+            tourCardLines(step).map((p) => (
+              <p key={p}>{p}</p>
+            ))
+          ) : (
+            <p>I'll walk you through the operator console. Hit Start tour — that also turns the sound on.</p>
+          )}
         </div>
         <div className="tour-nav">
-          <button type="button" className="btn" onClick={onClose}>
-            Skip
-          </button>
-          <div className="tour-nav-end">
-            <button type="button" className="btn" disabled={index === 0} onClick={() => setIndex((n) => Math.max(0, n - 1))}>
-              Back
-            </button>
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => {
-                if (last) onClose();
-                else setIndex((n) => n + 1);
-              }}
-            >
-              {last ? 'Finish' : 'Next'}
-            </button>
-          </div>
+          {started ? (
+            <>
+              <div className="tour-nav-start">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    stop();
+                    skip();
+                  }}
+                >
+                  Skip
+                </button>
+                <button
+                  type="button"
+                  className={`btn${muted ? ' is-muted' : ''}`}
+                  aria-pressed={muted}
+                  onClick={() => setMuted((m) => !m)}
+                >
+                  {muted ? 'Unmute' : 'Mute'}
+                </button>
+              </div>
+              <div className="tour-nav-end">
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={index === 0}
+                  onClick={() => {
+                    stop();
+                    goBack();
+                  }}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => {
+                    stop();
+                    goNext();
+                  }}
+                >
+                  {last ? 'Finish' : 'Next'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn" onClick={skip}>
+                Skip
+              </button>
+              <button type="button" className="btn primary" onClick={startTour}>
+                Start tour
+              </button>
+            </>
+          )}
         </div>
       </aside>
     </div>
