@@ -1,6 +1,6 @@
 /** Product tour. Each step names a `data-tour` target and a CMS view to open. */
 
-export const TOUR_VOICE_REV = 'andrew-chat-1';
+export const TOUR_VOICE_REV = 'andrew-plain-1';
 
 export function tourVoiceUrl(stepId) {
   return `/tour/voice/${encodeURIComponent(stepId)}.mp3?v=${TOUR_VOICE_REV}`;
