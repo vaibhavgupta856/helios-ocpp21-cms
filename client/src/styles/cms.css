@@ -3039,18 +3039,13 @@ tr.walk-pulse {
   position: absolute;
   inset: 0;
   pointer-events: auto;
-  background: color-mix(in srgb, var(--text) 55%, transparent);
-  transition: background 0.25s ease;
-}
-
-.tour.is-ready .tour-dim {
   background: transparent;
 }
 
 .tour-spot {
   position: absolute;
   pointer-events: none;
-  box-shadow: 0 0 0 9999px color-mix(in srgb, var(--text) 55%, transparent);
+  box-shadow: none;
   outline: 2px solid var(--brand);
   outline-offset: 0;
   background: transparent;
@@ -3072,14 +3067,10 @@ tr.walk-pulse {
 @keyframes tour-pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 0 9999px color-mix(in srgb, var(--text) 55%, transparent),
-      0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
   }
   70% {
-    box-shadow:
-      0 0 0 9999px color-mix(in srgb, var(--text) 55%, transparent),
-      0 0 0 10px color-mix(in srgb, var(--brand) 18%, transparent);
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--brand) 18%, transparent);
   }
 }
 
