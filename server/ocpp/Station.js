@@ -180,8 +180,17 @@ export class Station extends EventEmitter {
       });
       return Promise.resolve(result);
     }
-    if (!this.online || !this.isOpen()) {
-      return Promise.reject(new Error(`${this.stationId} is offline`));
+    // If the station is enrolled but currently offline, allow store-and-forward:
+    // queue the CALL and send it as soon as the WebSocket becomes open.
+    // This makes operator actions functional even when the charge point connects later.
+    if (!this.isOpen()) {
+      if (!this.enrolled) {
+        return Promise.reject(new Error(`${this.stationId} is offline`));
+      }
+      return new Promise((resolve, reject) => {
+        this.outboundQueue.push({ action, body, resolve, reject });
+        this.flushOutbound();
+      });
     }
     return new Promise((resolve, reject) => {
       this.outboundQueue.push({ action, body, resolve, reject });

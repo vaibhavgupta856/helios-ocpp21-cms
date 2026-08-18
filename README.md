@@ -12,6 +12,17 @@ This repository is a **Charging Station Management System (CSMS / central system
 
 ---
 
+## Documentation
+
+| Guide | Audience |
+|--------|----------|
+| [docs/User-Guide.md](docs/User-Guide.md) | Operators — every page, WSS pairing, Ask Helios, twin, roles |
+| [docs/Developer-Guide.md](docs/Developer-Guide.md) | Local run, architecture, REST, env |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Render, env vars, hosted WSS |
+| [docs/OCPP-2.1-CSMS.md](docs/OCPP-2.1-CSMS.md) | What Helios sends and accepts on the wire |
+
+---
+
 ## Local run
 
 ```bash

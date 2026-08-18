@@ -158,6 +158,13 @@ export class Registry {
     assignChargePoint(this, stationId);
     this.emitStation(station);
     this.io?.emit('cms:log', { at: nowIso(), level: 'info', text: `${stationId} connected (${station.transport})` });
+    // If there were offline CALLs queued while the station was disconnected,
+    // send them now that the WebSocket is open.
+    try {
+      station.flushOutbound?.();
+    } catch {
+      /* ignore */
+    }
     return station;
   }
 
@@ -241,7 +248,22 @@ export class Registry {
   async callStation(stationId, action, payload) {
     const station = this.getStation(stationId);
     if (!station) throw new Error('Station not found');
-    const body = payload && Object.keys(payload).length ? payload : defaultCsmsPayload(action, { stationId });
+    let body = payload && Object.keys(payload).length ? payload : defaultCsmsPayload(action, { stationId });
+
+    // Remote stop should be "operator friendly": if UI doesn't provide transactionId,
+    // pick the currently active transaction for this station from stored TransactionEvent data.
+    if (action === 'RequestStopTransaction') {
+      const providedTxId = payload?.transactionId;
+      if (!providedTxId) {
+        const active = this.transactions
+          .filter((t) => t.stationId === stationId && t.status && t.status !== 'Ended')
+          .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0];
+        if (!active?.transactionId) {
+          throw new Error(`No active transaction found on ${stationId}`);
+        }
+        body = { ...body, transactionId: active.transactionId };
+      }
+    }
     if (action === 'UpdateFirmware' || action === 'PublishFirmware' || action === 'UnpublishFirmware' || action === 'GetLog') {
       this.firmwareJobs.unshift({
         id: `${action}-${Date.now()}`,

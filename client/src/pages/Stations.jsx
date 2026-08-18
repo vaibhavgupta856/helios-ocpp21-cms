@@ -5,6 +5,8 @@ import WssPairingCard, { CopyField } from '../components/WssPairingCard.jsx';
 import { api } from '../api.js';
 import { buildOrgTree, stationLabel } from '../org.js';
 import { isWalkHit } from '../agentWalk.js';
+import JsonEditor from '../components/JsonEditor.jsx';
+import { pretty } from '../api.js';
 
 function connectionUrls(stationId, security) {
   if (!stationId) return { wsUrl: '', wssUrl: '' };
@@ -30,6 +32,8 @@ export default function Stations({
   setError,
   can = () => false,
   walkFocus = null,
+  catalog = null,
+  transactions = [],
 }) {
   const canTenant = can('org.tenant');
   const canSite = can('org.site');
@@ -38,8 +42,9 @@ export default function Stations({
   const canCall = can('ocpp.call');
   const canAssign = can('org.assign');
   const [busy, setBusy] = useState('');
-  const [txId, setTxId] = useState('');
+  const [stopTxId, setStopTxId] = useState('');
   const [idToken, setIdToken] = useState('RFID-MASSIVE-01');
+  const [startEvseId, setStartEvseId] = useState(1);
   const [newId, setNewId] = useState('VF-CP-21');
   const [query, setQuery] = useState('');
   const [tenantId, setTenantId] = useState(tenants[0]?.id || '');
@@ -66,6 +71,36 @@ export default function Stations({
     () => buildOrgTree({ tenants, sites, stations, query }),
     [tenants, sites, stations, query]
   );
+
+  const activeTxForStation = useMemo(() => {
+    const sid = selected?.stationId;
+    if (!sid) return [];
+    return (transactions || [])
+      .filter((t) => t.stationId === sid && t.status && t.status !== 'Ended')
+      .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  }, [transactions, selected?.stationId]);
+
+  useEffect(() => {
+    setStopTxId(activeTxForStation[0]?.transactionId || '');
+  }, [activeTxForStation, selected?.stationId]);
+
+  const [actionBlock, setActionBlock] = useState('All');
+  const [selectedAction, setSelectedAction] = useState(null);
+  const [payloadText, setPayloadText] = useState('{}');
+
+  const csmsToCsActions = useMemo(() => catalog?.csmsToCs || [], [catalog]);
+  const blocks = useMemo(() => catalog?.blocks || [], [catalog]);
+  const visibleActions = useMemo(() => {
+    const list = csmsToCsActions || [];
+    if (actionBlock === 'All') return list;
+    return list.filter((a) => a.block === actionBlock);
+  }, [actionBlock, csmsToCsActions]);
+
+  const pickAction = (action) => {
+    setSelectedAction(action);
+    const def = catalog?.defaults?.[action.action] || {};
+    setPayloadText(pretty(def));
+  };
 
   useEffect(() => {
     if (selected?.siteId && openSiteId) setOpenSiteId(selected.siteId);
@@ -772,6 +807,16 @@ export default function Stations({
                     Id token
                     <input value={idToken} onChange={(e) => setIdToken(e.target.value)} />
                   </label>
+                  <label className="field" style={{ maxWidth: '5.5rem' }}>
+                    EVSE
+                    <select value={startEvseId} onChange={(e) => setStartEvseId(Number(e.target.value))}>
+                      {(selected?.evses?.length ? selected.evses : [{ evseId: 1, connectorId: 1 }]).map((ev) => (
+                        <option key={`${ev.evseId}:${ev.connectorId}`} value={ev.evseId}>
+                          {ev.evseId}/{ev.connectorId}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <button
                     type="button"
                     className="btn primary"
@@ -780,7 +825,7 @@ export default function Stations({
                       run('RequestStartTransaction', {
                         idToken: { idToken, type: 'ISO14443' },
                         remoteStartId: Date.now() % 1e9,
-                        evseId: 1,
+                        evseId: startEvseId,
                       })
                     }
                   >
@@ -788,19 +833,89 @@ export default function Stations({
                   </button>
                 </div>
                 <div className="form-row">
-                  <label className="field">
-                    Transaction id
-                    <input value={txId} onChange={(e) => setTxId(e.target.value)} placeholder="tx-…" />
-                  </label>
                   <button
                     type="button"
                     className="btn"
-                    disabled={!!busy || !txId}
-                    onClick={() => run('RequestStopTransaction', { transactionId: txId })}
+                    disabled={!!busy || !stopTxId}
+                    onClick={() => run('RequestStopTransaction', { transactionId: stopTxId })}
                   >
                     RequestStop
                   </button>
                 </div>
+
+                {activeTxForStation.length ? (
+                  <p className="muted" style={{ marginTop: '0.5rem' }}>
+                    Active Tx: <code>{activeTxForStation[0].transactionId}</code>
+                  </p>
+                ) : (
+                  <p className="muted" style={{ marginTop: '0.5rem' }}>
+                    No active transaction detected on this station.
+                  </p>
+                )}
+
+                <hr style={{ margin: '1rem 0' }} />
+
+                <h3 style={{ marginTop: 0 }}>CSMS → CS actions</h3>
+                <div className="form-row" style={{ alignItems: 'flex-end' }}>
+                  <label className="field" style={{ marginRight: '0.75rem' }}>
+                    Block
+                    <select value={actionBlock} onChange={(e) => setActionBlock(e.target.value)}>
+                      <option value="All">All</option>
+                      {blocks.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="action-grid" style={{ marginTop: '0.6rem' }}>
+                  {visibleActions.map((item) => (
+                    <button
+                      type="button"
+                      key={item.action}
+                      className={`action-chip ${selectedAction?.action === item.action ? 'active' : ''}`}
+                      disabled={!!busy}
+                      onClick={() => pickAction(item)}
+                    >
+                      {item.action}
+                      <small>{item.block}</small>
+                    </button>
+                  ))}
+                </div>
+
+                {selectedAction ? (
+                  <div style={{ marginTop: '0.85rem' }}>
+                    <p className="muted">
+                      Payload for <code>{selectedAction.action}</code> (defaults prefilled). Edit and send.
+                    </p>
+                    <JsonEditor value={payloadText} onChange={setPayloadText} rows={10} />
+                    <div className="ops" style={{ marginTop: '0.65rem' }}>
+                      <button
+                        type="button"
+                        className="btn primary"
+                        disabled={!!busy || !selected?.stationId}
+                        onClick={async () => {
+                          let parsed = {};
+                          try {
+                            parsed = JSON.parse(payloadText || '{}');
+                          } catch {
+                            setError('Payload is not valid JSON');
+                            return;
+                          }
+                          try {
+                            await run(selectedAction.action, parsed);
+                          } catch (e) {
+                            setError(e?.message || String(e));
+                          }
+                        }}
+                      >
+                        Send CALL
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
                 {busy ? <p className="muted">Sending {busy}…</p> : null}
               </div>
               ) : null}
