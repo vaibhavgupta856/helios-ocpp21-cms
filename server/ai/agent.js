@@ -56,7 +56,7 @@ export function looksLikeQuestion(q) {
 }
 
 export function wantsMutation(q) {
-  return /\b(add|create|enroll|simulate|move|set|make|register|save|put|block|reserve|new (station|site|hub|depot|charge|tenant|token|tariff|charger))\b/i.test(
+  return /\b(add|create|enroll|simulate|move|set|make|register|save|put|block|reserve|pair|provision|onboard|spin up|stand up|new (station|site|hub|depot|charge|tenant|token|tariff|charger|rfid))\b/i.test(
     q
   );
 }
@@ -177,7 +177,7 @@ export function parseAgentIntents(question) {
   const siteInCity = onboard
     ? null
     : q.match(
-    /\b(?:add|create|make|register)\s+(?:a\s+)?(?:new\s+)?(?:station|site|hub|depot)\s+in\s+["']?([A-Za-z .-]{2,40}?)["']?(?:\s+(?:called|named)\s+["']?([A-Za-z0-9 ._-]{2,80}?)["']?)?(?=\s+(?:and|then|,|$)|$)/i
+    /\b(?:add|create|make|register|new)\s+(?:a\s+)?(?:new\s+)?(?:station|site|hub|depot)\s+in\s+["']?([A-Za-z .-]{2,40}?)["']?(?:\s+(?:called|named)\s+["']?([A-Za-z0-9 ._-]{2,80}?)["']?)?(?=\s+(?:and|then|,|$)|$)/i
   );
   const siteNamed = onboard
     ? null
@@ -211,16 +211,16 @@ export function parseAgentIntents(question) {
   }
 
   const cpWithId = q.match(
-    /\b(?:add|create|enroll|register)\s+(?:a\s+)?(?:new\s+)?(?:charge\s*point|charger|cp)\s+(?:named\s+|called\s+|id\s+|with id\s+)?["']?([A-Za-z0-9._:-]{2,64})["']?\s+(?:at|to|under|in|on)\s+(?:station\s+)?["']?([A-Za-z0-9 ._-]{2,80}?)["']?(?=\s+(?:and|then|,|$)|$)/i
+    /\b(?:add|create|enroll|register|make|provision|onboard|pair)(?:\s+me)?\s+(?:a\s+|an\s+|new\s+)?(?:charge\s*point|charger|cp)\s+(?:named\s+|called\s+|id\s+|with id\s+)?["']?([A-Za-z0-9._:-]{2,64})["']?\s+(?:at|to|under|in|on)\s+(?:station\s+)?["']?([A-Za-z0-9 ._-]{2,80}?)["']?(?=\s+(?:and|then|,|$)|$)/i
   );
   const cpIdOnly = q.match(
-    /\b(?:add|create|enroll|register)\s+(?:a\s+)?(?:new\s+)?(?:charge\s*point|charger|cp)\s+(?:named\s+|called\s+|id\s+|with id\s+)["']?([A-Za-z0-9._:-]{2,64})["']?(?=\s+(?:and|then|,|$)|$)/i
+    /\b(?:add|create|enroll|register|make|provision|onboard|pair)(?:\s+me)?\s+(?:a\s+|an\s+|new\s+)?(?:charge\s*point|charger|cp)\s+(?:named\s+|called\s+|id\s+|with id\s+)["']?([A-Za-z0-9._:-]{2,64})["']?(?=\s+(?:and|then|,|$)|$)/i
   );
   const cpAtSite = q.match(
-    /\b(?:add|create|enroll|register)\s+(?:a\s+)?(?:new\s+)?(?:charge\s*point|charger|cp)\s+(?:at|to|under|in|on)\s+(?:station\s+)?["']?([A-Za-z0-9 ._-]{2,80}?)["']?(?=\s+(?:and|then|,|$)|$)/i
+    /\b(?:add|create|enroll|register|make|provision|onboard|pair)(?:\s+me)?\s+(?:a\s+|an\s+|new\s+)?(?:charge\s*point|charger|cp)\s+(?:at|to|under|in|on)\s+(?:station\s+)?["']?([A-Za-z0-9 ._-]{2,80}?)["']?(?=\s+(?:and|then|,|$)|$)/i
   );
   const enrollMatch = q.match(
-    /\benroll\s+["']?([A-Za-z0-9._:-]{2,64})["']?(?:\s+(?:at|to|under|in)\s+(?:station\s+)?["']?([A-Za-z0-9][A-Za-z0-9 ._-]{0,78}?)["']?(?=\s+(?:and|then|,|please)|$))?/i
+    /\b(?:enroll|pair)\s+["']?([A-Za-z0-9._:-]{2,64})["']?(?:\s+(?:at|to|under|in|with)\s+(?:station\s+)?["']?([A-Za-z0-9][A-Za-z0-9 ._-]{0,78}?)["']?(?=\s+(?:and|then|,|please)|$))?/i
   );
 
   if (!calls.some((c) => c.tool === 'addChargePoint')) {
@@ -261,8 +261,13 @@ export function parseAgentIntents(question) {
   const tokenMatch = q.match(
     /\b(?:add|create|register)\s+(?:an?\s+)?(?:rfid\s+|auth\s+)?token\s+(?:named\s+|called\s+|id\s+)?["']?([A-Za-z0-9._:-]{2,64})["']?/i
   );
+  const rfidMatch = q.match(
+    /\b(?:add|create|register)\s+(?:an?\s+)?(?:rfid(?:\s+(?:tag|card|fob|token))?|tag|card|fob)\s+(?:named\s+|called\s+|id\s+)?["']?([A-Za-z0-9._:-]{2,64})["']?/i
+  );
   if (tokenMatch) {
     calls.push({ tool: 'addToken', args: { idToken: cleanName(tokenMatch[1]) } });
+  } else if (rfidMatch) {
+    calls.push({ tool: 'addToken', args: { idToken: cleanName(rfidMatch[1]) } });
   }
 
   const blockMatch = q.match(/\bblock\s+(?:token\s+)?["']?([A-Za-z0-9._:-]{2,64})["']?/i);
@@ -317,12 +322,14 @@ export function parseAgentIntents(question) {
 }
 
 function bareTool(q) {
-  if (/\b(add|create|enroll|register)\b/i.test(q) && /\b(charge\s*points?|chargers?|\bcp\b)\b/i.test(q)) return 'addChargePoint';
+  if (/\b(add|create|enroll|register|make|provision|onboard|pair)\b/i.test(q) && /\b(charge\s*points?|chargers?|\bcp\b)\b/i.test(q)) {
+    return 'addChargePoint';
+  }
   if (/\bsimulate\b/i.test(q) && /\b(charge\s*point|charger|station|cp)?\b/i.test(q)) return 'simulateChargePoint';
-  if (/\b(add|create|make|register)\b/i.test(q) && /\b(stations?|sites?|hubs?|depots?)\b/i.test(q)) return 'addStation';
+  if (/\b(add|create|make|register|new)\b/i.test(q) && /\b(stations?|sites?|hubs?|depots?)\b/i.test(q)) return 'addStation';
   if (/\b(add|create|make|register)\b/i.test(q) && /\btenants?\b/i.test(q)) return 'addTenant';
-  if (/\b(add|create|register)\b/i.test(q) && /\btokens?\b/i.test(q)) return 'addToken';
-  if (/\bblock\b/i.test(q) && /\btoken\b/i.test(q)) return 'blockToken';
+  if (/\b(add|create|register)\b/i.test(q) && /\b(tokens?|rfid|tag|card|fob)\b/i.test(q)) return 'addToken';
+  if (/\bblock\b/i.test(q) && /\b(token|rfid|tag|card)\b/i.test(q)) return 'blockToken';
   if (/\b(add|create)\b/i.test(q) && /\btariffs?\b/i.test(q)) return 'addTariff';
   if (/\bset\b/i.test(q) && /\bdefault tariff\b/i.test(q)) return 'setDefaultTariff';
   if (/\b(add|create|make)\b/i.test(q) && /\breserv/i.test(q)) return 'addReservation';

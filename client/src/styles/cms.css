@@ -3001,6 +3001,15 @@ tr.walk-pulse {
   visibility: hidden;
 }
 
+html[data-tour-demo] .cms-shell.tour-on .agent-hud {
+  visibility: visible;
+  pointer-events: none;
+}
+
+html[data-tour-demo] .cms-shell.tour-on .agent-hud .agent-hud-ops {
+  display: none;
+}
+
 .ask-tour-feed {
   display: inline-flex;
   flex-wrap: wrap;

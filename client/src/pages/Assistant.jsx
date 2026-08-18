@@ -12,33 +12,35 @@ const MODES = [
 
 const SUGGESTIONS = {
   ask: [
-    'Should we keep Whitefield Hub?',
-    'Why did revenue drop?',
-    'Explain Dijkstra’s algorithm',
+    'What is online right now?',
+    'Status of Whitefield Hub',
+    'How do I add RFID?',
     'How do I connect a charge point on WSS?',
+    'Should we keep Whitefield Hub?',
+    'How do I approve a Reset?',
   ],
   agent: [
     'Add a charge point',
+    'Add RFID CARD-LAB-21',
     'Add tenant FleetCo with a station Indiranagar Hub in Bengaluru and a charge point CP-01',
-    'Add station Koramangala Hub in Bengaluru',
     'Simulate a charger at Cyber Hub',
   ],
 };
 
 const COPY = {
   ask: {
-    subtitle: 'Ask — answers from the live CMS. Nothing is created or changed.',
-    banner: 'Ask answers in plain language. If you want something added, switch to Agent.',
-    empty: 'Ask why revenue dropped, whether to keep a hub, or how WSS commissioning works. I will not change the CMS here.',
-    placeholder: 'Ask about a hub, outages, WSS, Dijkstra, or this CSMS…',
+    subtitle: 'Ask — live CMS answers. No API key needed for operator work.',
+    banner: 'Ask reads the live network. Switch to Agent to add a tenant, hub, charge point, or RFID.',
+    empty: 'Ask about a hub, what is online, WSS pairing, RFID, Demand, or Approve. I will not change the CMS here.',
+    placeholder: 'Status of Whitefield Hub, how do I add RFID, pair Voltforge on WSS…',
     button: 'Ask',
     busy: 'Reading the live CMS…',
-    hint: 'Ask only answers. Switch to Agent when you want a tenant, station, or charge point created.',
+    hint: 'Ask only answers. Switch to Agent when you want a tenant, station, RFID, or charge point created.',
   },
   agent: {
     subtitle: 'Agent — does the CMS work. Live OCPP still waits for Approve.',
     banner: 'Agent is on. Say what to add. If a tenant, station, or name is missing, I will ask before changing anything.',
-    empty: 'Tell me what to create. I will ask if something is missing, then do it. Restart and firmware still come back as proposals to Approve.',
+    empty: 'Tell me what to create — tenant, hub, charge point, RFID, tariff, or a simulated charger. Restart and firmware still come back as proposals to Approve.',
     placeholder: 'Add tenant FleetCo with a station Indiranagar Hub in Bengaluru and a charge point CP-01',
     button: 'Do it',
     busy: 'Working in the live CMS…',
@@ -167,6 +169,8 @@ export default function Assistant({ me, users = [], onAgentWalk }) {
   const abortRef = useRef(null);
   const runningRef = useRef(false);
   const jobGen = useRef(0);
+  const sendRef = useRef(() => {});
+  const tourDemoGen = useRef(0);
   const copy = COPY[mode] || COPY.ask;
   const messages = chat?.messages || [];
   const lastMsg = messages[messages.length - 1];
@@ -214,12 +218,36 @@ export default function Assistant({ me, users = [], onAgentWalk }) {
 
   useEffect(() => {
     const onTour = (e) => {
-      if (e.detail?.llmOpen === true) setLlmOpen(true);
-      else if (e.detail?.llmOpen === false) setLlmOpen(false);
+      const d = e.detail || {};
+      if (d.llmOpen === true) setLlmOpen(true);
+      else if (d.llmOpen === false) setLlmOpen(false);
+      if (!d.demo || !d.prompt) {
+        tourDemoGen.current += 1;
+        return;
+      }
+      const gen = ++tourDemoGen.current;
+      const prompt = String(d.prompt).trim();
+      const nextMode = d.mode || 'ask';
+      (async () => {
+        if (modes.includes(nextMode)) setMode(nextMode);
+        setDraft('');
+        await new Promise((r) => setTimeout(r, 320));
+        if (tourDemoGen.current !== gen) return;
+        for (let i = 1; i <= prompt.length; i++) {
+          if (tourDemoGen.current !== gen) return;
+          setDraft(prompt.slice(0, i));
+          await new Promise((r) => setTimeout(r, 26));
+        }
+        if (tourDemoGen.current !== gen) return;
+        sendRef.current(prompt, { mode: nextMode });
+      })();
     };
     window.addEventListener('massive-tutorial', onTour);
-    return () => window.removeEventListener('massive-tutorial', onTour);
-  }, []);
+    return () => {
+      tourDemoGen.current += 1;
+      window.removeEventListener('massive-tutorial', onTour);
+    };
+  }, [modes]);
 
   useEffect(() => {
     sessionStorage.setItem(MODE_KEY, mode);
@@ -428,6 +456,7 @@ export default function Assistant({ me, users = [], onAgentWalk }) {
     }
     runJob(job);
   };
+  sendRef.current = send;
 
   const cancelInflight = () => {
     abortRef.current?.abort();
@@ -579,13 +608,11 @@ export default function Assistant({ me, users = [], onAgentWalk }) {
         }
       />
       <p className={`assistant-banner ${mode}`}>{copy.banner}</p>
-      {status && (!status.llm || status.unauthorized || status.keyMismatch) ? (
+      {status?.unauthorized || status?.keyMismatch ? (
         <p className="assistant-banner llm-key">
           {status?.unauthorized
-            ? 'The saved API key was rejected. Paste a new one under API key — general AI will not call the model until it works.'
-            : status?.keyMismatch
-              ? 'Saved API key does not match this provider. Paste a matching key under API key.'
-              : 'General AI answers need an API key.'}
+            ? 'The saved API key was rejected. Paste a new one under API key — off-topic write-ups will not call the model until it works. Live CMS Ask and Agent still work.'
+            : 'Saved API key does not match this provider. Paste a matching key under API key. Live CMS Ask and Agent still work.'}
         </p>
       ) : null}
       <p className="muted assistant-meta">
@@ -609,7 +636,7 @@ export default function Assistant({ me, users = [], onAgentWalk }) {
         ) : (
           <>
             <span className="llm-chip none">No API key</span>
-            Live CMS answers only. General AI needs a key on this page under API key, or CMS_LLM_API_KEY.
+            Live CMS Ask and Agent work without a key. Optional API key (or Ollama) is only for jokes, poems, and off-topic write-ups.
           </>
         )}
         {me ? ` · asking as ${me.name}` : ''}
@@ -621,7 +648,8 @@ export default function Assistant({ me, users = [], onAgentWalk }) {
         <div className="card llm-panel">
           <h3>Language model</h3>
           <p className="muted">
-            For this lab, use <strong>Ollama (local)</strong> with <code>qwen2.5:7b</code> — no cloud key, works for Ask, insights, and Agent.
+            For this lab you do <strong>not</strong> need a key for Ask or Agent — they already read and write the live CMS.
+            Optional: <strong>Ollama (local)</strong> with <code>qwen2.5:7b</code> for off-topic write-ups, or a cloud key.
             OpenRouter <code>:free</code> models share a daily cap. Cloud keys stay in <code>certs/llm.json</code> if you switch back.
           </p>
           {ollama?.up ? (

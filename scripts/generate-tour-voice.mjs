@@ -97,9 +97,26 @@ async function main() {
     await withPython(['-m', 'pip', 'install', '--user', 'edge-tts']);
   }
 
+  const args = process.argv.slice(2).filter((a) => a && !a.startsWith('--'));
+  const force = process.argv.includes('--force');
+  const { access } = await import('node:fs/promises');
+  const exists = async (p) => {
+    try {
+      await access(p);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   for (const step of TUTORIAL_STEPS) {
     if (!step.voice || !step.id) continue;
+    if (args.length && !args.includes(step.id)) continue;
     const dest = path.join(OUT, `${step.id}.mp3`);
+    if (!force && !args.length && (await exists(dest))) {
+      process.stdout.write(`skip ${step.id} (exists)\n`);
+      continue;
+    }
     process.stdout.write(`voice ${step.id} → ${path.relative(ROOT, dest)}\n`);
     await speakText(step.voice, dest);
   }

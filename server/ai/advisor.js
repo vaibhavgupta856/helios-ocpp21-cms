@@ -6,6 +6,9 @@
 import { listTenants, listSites } from '../org.js';
 import { mdTable } from './replyFormat.js';
 import { isOpenRouterLimited } from '../llm.js';
+import { looksLikeCmsQuestion } from './localOps.js';
+
+export { looksLikeCmsQuestion };
 
 function money(n, currency = 'EUR') {
   const v = Number(n);
@@ -16,8 +19,9 @@ function money(n, currency = 'EUR') {
 export function isGeneralQuestion(question) {
   const q = String(question || '').trim().toLowerCase();
   if (!q) return false;
+  if (looksLikeCmsQuestion(question)) return false;
   if (
-    /\b(station|tenant|charger|charge point|ocpp|wss|tariff|session|token|rfid|firmware|evse|csms|cms|hub|depot)\b/.test(
+    /\b(station|tenant|charger|charge point|ocpp|wss|tariff|session|token|rfid|firmware|evse|csms|cms|hub|depot|approve|voltforge|helios)\b/.test(
       q
     )
   ) {
@@ -47,7 +51,7 @@ export function isLlmPrimaryQuestion(question) {
   const q = String(question || '').trim();
   if (!q) return false;
   const t = q.toLowerCase();
-  if (isKeepRemoveQuestion(q) || hasKnownGeneralAnswer(q)) return false;
+  if (looksLikeCmsQuestion(q) || isKeepRemoveQuestion(q) || hasKnownGeneralAnswer(q)) return false;
   if (
     /\b(what is online|what'?s online|who is offline|who should we restart|why did revenue|revenue drop|lost revenue|income drop)\b/.test(
       t
@@ -60,21 +64,30 @@ export function isLlmPrimaryQuestion(question) {
     /^(write|draft|compose|generate|rewrite|translate|proofread|brainstorm|summarise|summarize)\b/i.test(t) ||
     /\b(write me|draft me|compose me|generate me|make me a)\b/i.test(t);
   if (writing) {
-    if (CMS_MUTATE.test(t) && /\b(add|create|enroll|simulate|register)\b/i.test(t)) return false;
+    if (CMS_MUTATE.test(t) && /\b(add|create|enroll|simulate|register|make|new|pair)\b/i.test(t)) return false;
     if (/\b(wss|commission|connect a charge|tls|mtls)\b/.test(t) && !/\b(joke|poem|haiku|lyrics)\b/.test(t)) {
       return false;
     }
     return true;
   }
   if (/\b(joke|poem|haiku|lyrics|recipe|riddle)\b/.test(t)) return true;
-  if (/\b(weather|forecast|temperature outside|news headline)\b/.test(t) && !CMS_MUTATE.test(t)) return true;
+  if (
+    /\b(weather|temperature outside|news headline)\b/.test(t) &&
+    !CMS_MUTATE.test(t) &&
+    !looksLikeCmsQuestion(q)
+  ) {
+    return true;
+  }
+  if (/\bforecast\b/.test(t) && !/\b(demand|load|charging|hub|station|site|cms)\b/.test(t) && !CMS_MUTATE.test(t)) {
+    return true;
+  }
   if (isGeneralQuestion(q) && !hasKnownGeneralAnswer(q)) return true;
   return false;
 }
 
 export function llmKeyNeededReply(access = {}) {
   const ops =
-    'I can still answer live ops without a model: WSS commissioning, what is online, KPIs, and keep vs remove.';
+    'I can still run this CSMS without a model: live status, named hubs and charge points, WSS pairing, RFID/tariffs how-tos, Demand, Site planner, keep vs remove, and Agent writes (tenant, hub, CP, token). A key is only for jokes, poems, and off-topic write-ups.';
   const where =
     'Add a key on this Ask page under **API key**, or set `CMS_LLM_API_KEY` (OpenAI `OPENAI_API_KEY`, Groq, Anthropic, and OpenRouter env vars also work). You can also choose **Ollama (local)** there — no cloud key.';
   const code = access.code || 'no-key';

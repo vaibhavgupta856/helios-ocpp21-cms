@@ -119,7 +119,7 @@ function withCaret(placed, target, cardW, cardH) {
   return { ...placed, caretLeft, caretTop };
 }
 
-function placeCard(target, cardW, cardH) {
+function placeCard(target, cardW, cardH, preferSide) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const t = {
@@ -143,12 +143,21 @@ function placeCard(target, cardW, cardH) {
     return withCaret({ left, top, side, score: area - dist * 0.15 }, t, cardW, cardH);
   };
 
-  const candidates = [];
   const rightSpace = vw - t.right - GAP - PAD;
   const leftSpace = t.left - GAP - PAD;
   const bottomSpace = vh - t.bottom - GAP - PAD;
   const topSpace = t.top - GAP - PAD;
 
+  if (preferSide === 'left' && leftSpace >= 200) {
+    const hit = clamp(t.left - GAP - cardW, t.top + t.height / 2 - cardH / 2, 'left');
+    if (hit) return hit;
+  }
+  if (preferSide === 'right' && rightSpace >= 200) {
+    const hit = clamp(t.right + GAP, t.top + t.height / 2 - cardH / 2, 'right');
+    if (hit) return hit;
+  }
+
+  const candidates = [];
   if (rightSpace >= 260) candidates.push(clamp(t.right + GAP, t.top + t.height / 2 - cardH / 2, 'right'));
   if (leftSpace >= 260) candidates.push(clamp(t.left - GAP - cardW, t.top + t.height / 2 - cardH / 2, 'left'));
   if (bottomSpace >= 140) candidates.push(clamp(t.left + t.width / 2 - cardW / 2, t.bottom + GAP, 'bottom'));
@@ -190,6 +199,7 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
   const [cardPos, setCardPos] = useState({ left: 24, top: 88, side: 'right' });
   const [readyId, setReadyId] = useState(null);
   const [muted, setMuted] = useState(false);
+  const [highlightId, setHighlightId] = useState(null);
   const cardRef = useRef(null);
   const enteredIdRef = useRef(null);
   const indexRef = useRef(0);
@@ -215,11 +225,14 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       onCloseRef.current();
       return;
     }
+    indexRef.current = n + 1;
     setIndex(n + 1);
   }, []);
 
   const goBack = useCallback(() => {
-    setIndex(Math.max(0, indexRef.current - 1));
+    const n = Math.max(0, indexRef.current - 1);
+    indexRef.current = n;
+    setIndex(n);
   }, []);
 
   const skip = useCallback(() => {
@@ -239,7 +252,7 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
 
   const measure = useCallback(() => {
     if (!open || !started || !step) return false;
-    const el = findTarget(step.target);
+    const el = findTarget(highlightId || step.target);
     const cardW = cardWidth();
     const sheet = shouldDockSheet(el ? el.getBoundingClientRect() : null);
     const cardH = Math.min(cardRef.current?.offsetHeight || 280, window.innerHeight * (sheet ? 0.5 : 0.7));
@@ -286,7 +299,7 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
     );
     const placed = sheet
       ? { left: 12, top: 0, side: 'sheet', sheet: true, caretLeft: 0, caretTop: 0 }
-      : { ...placeCard(r, cardW, cardH), sheet: false };
+      : { ...placeCard(r, cardW, cardH, step.preferSide), sheet: false };
     setCardPos((prev) =>
       prev.left === placed.left &&
       prev.top === placed.top &&
@@ -298,7 +311,7 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
         : placed
     );
     return true;
-  }, [open, started, stepId, step]);
+  }, [open, started, stepId, step, highlightId]);
 
   const measureRef = useRef(measure);
   measureRef.current = measure;
@@ -310,8 +323,10 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       setSpot(null);
       setReadyId(null);
       setMuted(false);
+      setHighlightId(null);
       enteredIdRef.current = null;
       setSheetVar(0);
+      delete document.documentElement.dataset.tourDemo;
       window.dispatchEvent(new CustomEvent('massive-tutorial', { detail: { llmOpen: false, step: null } }));
       return undefined;
     }
@@ -319,6 +334,7 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
     setIndex(0);
     setReadyId(null);
     enteredIdRef.current = null;
+    setHighlightId(null);
     return undefined;
   }, [open]);
 
@@ -336,6 +352,8 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
     if (!current) return undefined;
     enteredIdRef.current = stepId;
     setReadyId(null);
+    setHighlightId(current.target);
+    delete document.documentElement.dataset.tourDemo;
     window.dispatchEvent(
       new CustomEvent('massive-tutorial', {
         detail: { llmOpen: false, step: current.id },
@@ -361,9 +379,33 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
         measureRef.current();
         setReadyId(stepId);
       }
+      if (current.demo && current.demoPrompt) {
+        document.documentElement.dataset.tourDemo = current.demo;
+        window.dispatchEvent(
+          new CustomEvent('massive-tutorial', {
+            detail: {
+              step: current.id,
+              demo: current.demo,
+              prompt: current.demoPrompt,
+              mode: current.demoMode || 'ask',
+            },
+          })
+        );
+        await wait(current.demoWait || 4000);
+        if (cancelled) return;
+        if (current.demoTarget) {
+          setHighlightId(current.demoTarget);
+          await wait(350);
+          if (cancelled) return;
+          const next = findTarget(current.demoTarget);
+          next?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+          measureRef.current();
+        }
+      }
     })();
     return () => {
       cancelled = true;
+      delete document.documentElement.dataset.tourDemo;
     };
   }, [open, started, stepId]);
 
@@ -394,7 +436,7 @@ export default function Tutorial({ open, onClose, navigate, onOpenNav, can }) {
       window.visualViewport?.removeEventListener('resize', onWin);
       window.visualViewport?.removeEventListener('scroll', onWin);
     };
-  }, [open, started, stepId]);
+  }, [open, started, stepId, highlightId]);
 
   useEffect(() => {
     if (!open) return undefined;

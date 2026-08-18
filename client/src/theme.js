@@ -20,13 +20,16 @@ export function readTheme() {
   return 'massive';
 }
 
-export function applyTheme(id) {
+export function applyTheme(id, opts = {}) {
+  const persist = opts.persist !== false;
   const theme = THEMES.some((t) => t.id === id) ? id : 'massive';
   document.documentElement.setAttribute('data-theme', theme);
-  try {
-    localStorage.setItem(KEY, theme);
-  } catch {
-    /* ignore */
+  if (persist) {
+    try {
+      localStorage.setItem(KEY, theme);
+    } catch {
+      /* ignore */
+    }
   }
   window.dispatchEvent(new CustomEvent('cms-theme', { detail: theme }));
   return theme;
@@ -36,15 +39,20 @@ export function applyStoredTheme() {
   return applyTheme(readTheme());
 }
 
-/** Soft tour loop through every look. Caller must invoke the returned stop (restores `saved`). */
-export function startThemeTourCycle(intervalMs = 850) {
+/** Play each look once, then restore `saved`. Caller must invoke the returned stop. */
+export function startThemeTourCycle(intervalMs = 900) {
   const ids = THEMES.map((t) => t.id);
   const saved = readTheme();
   let i = 0;
-  applyTheme(ids[i]);
+  applyTheme(ids[0], { persist: false });
   const timer = window.setInterval(() => {
-    i = (i + 1) % ids.length;
-    applyTheme(ids[i]);
+    i += 1;
+    if (i >= ids.length) {
+      window.clearInterval(timer);
+      applyTheme(saved);
+      return;
+    }
+    applyTheme(ids[i], { persist: false });
   }, intervalMs);
   return () => {
     window.clearInterval(timer);

@@ -25,7 +25,9 @@ import {
   keepRemoveAnswer,
   strategyPlan,
   llmFailNote,
+  looksLikeCmsQuestion,
 } from './ai/advisor.js';
+import { localOpsAnswer, cmsFallback, isHowToQuestion } from './ai/localOps.js';
 import { REPLY_FORMAT, mdTable, isUselessReply, stripLlmReply, pickOperatorReply } from './ai/replyFormat.js';
 
 export function assistantStatus() {
@@ -422,7 +424,7 @@ export function feedLiveContext(registry) {
 
 function isSmallTalk(question) {
   const q = String(question || '').trim().toLowerCase();
-  return /^(hi|hello|hey|yo|hiya|sup|thanks|thank you|ok|okay|cool|great|got it|who are you|what can you do|what can you|help)[\s!?.]*$/i.test(
+  return /^(hi|hello|hey|yo|hiya|sup|thanks|thank you|ok|okay|cool|great|got it|who are you|what can you do|what can you|help|help me|capabilities)[\s!?.]*$/i.test(
     q
   );
 }
@@ -430,10 +432,13 @@ function isSmallTalk(question) {
 function smallTalkAnswer() {
   return `Hi — I’m **Helios**, the operator copilot for this OCPP 2.1 lab CSMS.
 
-- **Ask** — questions about the live network, a hub, WSS commissioning, or general CS.
-- **Agent** — create a tenant, station, or charge point. I’ll ask if a name or ID is missing.
+I already use the **live CMS** — no API key needed for operator work.
 
-Live OCPP (Reset, firmware, stop session) still needs **Approve**. What do you want to look at?`;
+- **Ask** — named charge points and hubs, what is online, keep vs remove, WSS pairing, RFID/tariffs, Demand, Site planner, Approve how-tos.
+- **Agent** — create a tenant, station, charge point, RFID token, or simulated charger. I’ll ask if a name is missing.
+- **Approve** — live OCPP (Reset, firmware, stop session) still waits on Dashboard.
+
+A cloud key or local Ollama is only for jokes, poems, and off-topic write-ups. What do you want to look at?`;
 }
 
 function loopLive(question, briefing, { fullLive = false } = {}) {
@@ -539,6 +544,7 @@ function isInsightsQuestion(question) {
 function isLiveOpsQuestion(question) {
   const q = String(question || '').toLowerCase();
   return (
+    looksLikeCmsQuestion(question) ||
     isInsightsQuestion(q) ||
     isKeepRemoveQuestion(q) ||
     /why did revenue|revenue drop|lost revenue|income drop|what is online|who should we restart|who is offline/.test(q)
@@ -633,7 +639,7 @@ function localAnswer(question, briefing, registry) {
   if (isInsightsQuestion(question)) {
     return insightsAnswer(briefing);
   }
-  if (isGeneralQuestion(question) && !isKeepRemoveQuestion(question)) {
+  if (isGeneralQuestion(question) && !isKeepRemoveQuestion(question) && !looksLikeCmsQuestion(question)) {
     return generalAnswer(question, {
       hasLlm: llmAccess().ok,
     });
@@ -641,6 +647,9 @@ function localAnswer(question, briefing, registry) {
   if (isKeepRemoveQuestion(question) && registry) {
     return keepRemoveAnswer(registry, question);
   }
+
+  const ops = localOpsAnswer(question, briefing, registry);
+  if (ops) return ops;
 
   const header = () => {
     lines.push(
@@ -652,7 +661,7 @@ function localAnswer(question, briefing, registry) {
     return smallTalkAnswer();
   }
 
-  if (has(q, 'wss', 'websocket', 'tls', 'certificate', 'profile 1', 'profile 2', 'mtls', 'basic auth', 'how to add', 'how do i add', 'commission', 'connect a charge')) {
+  if (has(q, 'wss', 'websocket', 'tls', 'certificate', 'profile 1', 'profile 2', 'mtls', 'basic auth', 'commission', 'connect a charge')) {
     header();
     const sample = briefing.stations[0];
     lines.push('**Real (encrypted) path is WSS**, not plain WS.');
@@ -776,7 +785,7 @@ function localAnswer(question, briefing, registry) {
     return lines.join('\n\n');
   }
 
-  if (has(q, 'station', 'online', 'inventory', 'charger', 'evse', 'offline', 'who is')) {
+  if (!isHowToQuestion(question) && has(q, 'station', 'online', 'inventory', 'charger', 'evse', 'offline', 'who is')) {
     header();
     if (!briefing.stations.length) {
       lines.push('No stations yet. Enroll an ID on Stations or wait for a charge point to connect.');
@@ -939,19 +948,11 @@ function localAnswer(question, briefing, registry) {
     return lines.join('\n\n');
   }
 
-  return [
-    `I didn’t understand “${String(question || '').trim().slice(0, 160)}”.`,
-    '',
-    'Say it like one of these:',
-    '- **Take me to Site planner** (or Stations, Dashboard, Sessions)',
-    '- **Add a charge point** — I will ask which hub and the OCPP ID',
-    '- **What is online right now?**',
-    '- **Should we keep Whitefield Hub?** / **Why did revenue drop?**',
-  ].join('\n');
+  return cmsFallback(question, briefing);
 }
 
 function isLocalMiss(text) {
-  return /I didn’t understand “/i.test(String(text || ''));
+  return /I didn’t understand “/i.test(String(text || '')) || /I did not match a tighter playbook/i.test(String(text || ''));
 }
 
 /** True when this turn would call the LLM as the answerer (not a live-CMS rewrite). */
@@ -961,9 +962,10 @@ function turnNeedsLlmApi({ question, local, nav, job, executed, mode }) {
   if ((executed || []).some((e) => e.ok)) return false;
   if (job?.calls?.length && (mode === 'agent' || mode === 'multitask')) return false;
   if (isSmallTalk(question) || isInsightsQuestion(question) || isKeepRemoveQuestion(question)) return false;
+  if (looksLikeCmsQuestion(question) || isLiveOpsQuestion(question)) return false;
   if (hasKnownGeneralAnswer(question)) return false;
   if (isLlmPrimaryQuestion(question)) return true;
-  if (isLocalMiss(local)) return true;
+  if (isLocalMiss(local) && !looksLikeCmsQuestion(question)) return true;
   return false;
 }
 
@@ -984,8 +986,9 @@ function blockedLlmResult(registry, _question, resolved, canMutate, access) {
     pending: null,
     pendingJob: null,
     suggestions: [
-      'How do I connect a charge point on WSS?',
       'What is online right now?',
+      'How do I add RFID?',
+      'How do I connect a charge point on WSS?',
       'Should we keep Whitefield Hub?',
     ],
     at: briefing.at,
@@ -1172,7 +1175,7 @@ function followUpSuggestions({ mode, question, executed, plan }) {
   const q = String(question || '').toLowerCase();
   if (parseNavIntent(question)) return [];
   if (isSmallTalk(question)) {
-    return ['What is online right now?', 'Should we keep Whitefield Hub?', 'How do I connect a charge point on WSS?'];
+    return ['What is online right now?', 'How do I add RFID?', 'How do I connect a charge point on WSS?'];
   }
   const ok = (executed || []).filter((e) => e.ok);
   if (isInsightsQuestion(question) || /why did revenue|keep .+ hub|what is online/.test(q)) {
@@ -1183,10 +1186,16 @@ function followUpSuggestions({ mode, question, executed, plan }) {
     if (/keep|remove|close|underperform/.test(q)) {
       return ['Why did revenue drop?', 'What is online right now?'];
     }
-    if (/wss|commission|connect a charge|tls/.test(q)) {
-      return ['What is online right now?'];
+    if (/wss|commission|connect a charge|tls|voltforge|pair/.test(q)) {
+      return ['What is online right now?', 'How do I add RFID?'];
     }
-    return [];
+    if (/rfid|token/.test(q)) {
+      return ['How do I connect a charge point on WSS?', 'What is online right now?'];
+    }
+    if (/demand|forecast|planner|where should we build/.test(q)) {
+      return ['Should we keep Whitefield Hub?', 'What is online right now?'];
+    }
+    return ['What is online right now?', 'How do I add RFID?', 'Should we keep Whitefield Hub?'];
   }
   if (mode === 'agent' || mode === 'multitask') {
     if (ok.some((e) => e.tool === 'addChargePoint')) {
@@ -1289,7 +1298,7 @@ export async function askAssistant(registry, { question, history, agentMode, mod
   }
 
   const access = llmAccess();
-  if (isLlmPrimaryQuestion(q) && !access.ok && !pendingJob && !isLiveOpsQuestion(q)) {
+  if (isLlmPrimaryQuestion(q) && !access.ok && !pendingJob && !isLiveOpsQuestion(q) && !looksLikeCmsQuestion(q)) {
     return blockedLlmResult(registry, q, resolved, canMutate, access);
   }
 
@@ -1548,7 +1557,8 @@ export async function askAssistant(registry, { question, history, agentMode, mod
     isKeepRemoveQuestion(q) ||
     ((resolved === 'agent' || resolved === 'multitask') && executed.some((e) => e.ok));
   if (access.ok && !job.divert && !nav && !isOpenRouterLimited()) {
-    const skipRewrite = resolved === 'ask' && isLiveOpsQuestion(q) && !isLocalMiss(local);
+    const skipRewrite =
+      (resolved === 'ask' || resolved === 'plan') && !isLlmPrimaryQuestion(q) && !isLocalMiss(local);
     if (!skipRewrite) {
     throwIfAborted(signal);
     try {

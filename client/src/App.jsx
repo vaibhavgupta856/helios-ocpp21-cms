@@ -225,6 +225,14 @@ export default function App() {
     setHud(null);
   }, []);
 
+  useEffect(() => {
+    const onTour = (e) => {
+      if (e.detail?.step && !e.detail?.demo) dismissHud();
+    };
+    window.addEventListener('massive-tutorial', onTour);
+    return () => window.removeEventListener('massive-tutorial', onTour);
+  }, [dismissHud]);
+
   const backToChat = useCallback(() => {
     walkGen.current += 1;
     setHud(null);

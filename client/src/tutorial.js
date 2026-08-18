@@ -1,6 +1,6 @@
 /** Product tour. Each step names a `data-tour` target and a CMS view to open. */
 
-export const TOUR_VOICE_REV = 'andrew-plain-1';
+export const TOUR_VOICE_REV = 'andrew-ask-demo-1';
 
 export function tourVoiceUrl(stepId) {
   return `/tour/voice/${encodeURIComponent(stepId)}.mp3?v=${TOUR_VOICE_REV}`;
@@ -159,6 +159,38 @@ export const TUTORIAL_STEPS = [
     body: ['Arrow sends. Square stops the running answer. Enter queues the next one.'],
     voice:
       "Arrow sends. While it's talking, that becomes a square. That only stops the running question. Type another and hit Enter to queue it. Remove on a queued bubble drops that one. New chat clears the queue.",
+  },
+  {
+    id: 'ask-nav',
+    view: 'assistant',
+    target: 'ask-composer',
+    demo: 'nav',
+    demoPrompt: 'Open Stations',
+    demoMode: 'ask',
+    demoTarget: 'stations-tree',
+    demoWait: 4200,
+    preferSide: 'left',
+    require: 'nav.stations',
+    title: 'Ask opens a page',
+    body: ['Watch Ask type Open Stations and jump there. Nothing is created.'],
+    voice:
+      "Watch Ask Helios actually move us. I'll type Open Stations. It reads that as a page jump, not a new charger. There. We're on Stations. That's Ask. Nothing in the CMS was created.",
+  },
+  {
+    id: 'ask-add-cp',
+    view: 'assistant',
+    target: 'ask-composer',
+    demo: 'add-cp',
+    demoPrompt: 'Add a charge point TOUR-CP-21 at Whitefield Hub',
+    demoMode: 'agent',
+    demoTarget: 'stations-tree',
+    demoWait: 5000,
+    preferSide: 'left',
+    require: 'assistant.agent',
+    title: 'Agent adds a charge point',
+    body: ['Watch Agent enroll TOUR-CP-21 at Whitefield Hub, then walk you to Stations.'],
+    voice:
+      "Now Agent. I'll type Add a charge point TOUR-CP-21 at Whitefield Hub. Agent writes the record, then walks you to Stations so you can see it in the tree. Live Reset still waits for Approve. The same I D is reused if you replay the tour.",
   },
   {
     id: 'stations-wss',
@@ -443,8 +475,8 @@ export const TUTORIAL_STEPS = [
     view: 'dashboard',
     target: 'tour-btn',
     title: 'Replay any time',
-    body: ['Tutorial in the header replays. Live Reset and firmware still need Approve.'],
+    body: ['Tutorial in the header replays. Ask opened a page. Agent added a charge point.'],
     voice:
-      "That's the walkthrough. Skip or Escape dismisses until the next reload. Tutorial in the header plays it again. Ask Helios can open a page if you say the name. This is a lab, not a certified CSMS. Live Reset and firmware always need Approve.",
+      "That's the walkthrough. Skip or Escape dismisses until the next reload. Tutorial in the header plays it again. You just saw Ask open a page and Agent add a charge point. Live Reset and firmware always need Approve. This is a lab, not a certified CSMS.",
   },
 ];

@@ -21,7 +21,7 @@ const PAGES = [
   { view: 'catalog', label: 'OCPP catalog', keys: ['catalog'] },
   { view: 'trace', label: 'Trace', keys: ['trace'] },
   { view: 'twin', label: 'Digital twin', keys: ['twin', 'map'] },
-  { view: 'dashboard', label: 'Dashboard', keys: ['dashboard', 'home'] },
+  { view: 'dashboard', label: 'Dashboard', keys: ['dashboard', 'home', 'home kpis', 'the kpis', 'approve queue', 'action queue', 'approvals'] },
 ];
 
 export function parseNavIntent(question) {
@@ -32,7 +32,7 @@ export function parseNavIntent(question) {
     .replace(/\s+/g, ' ');
   if (!q) return null;
   const hasVerb =
-    /^(please\s+)?(take me|take us|bring me|bring us|open|go to|goto|show me|show|switch to|navigate to|head to|jump to)\b/.test(
+    /^(please\s+)?(take me|take us|bring me|bring us|open|go to|goto|show me|show|switch to|navigate to|head to|jump to|open up)\b/.test(
       q
     );
   const hasPlace = /\b(section|page|screen|tab)\b/.test(q);

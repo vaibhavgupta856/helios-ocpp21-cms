@@ -11,7 +11,7 @@ const PAGES = [
   { view: 'tariffs', label: 'Tariffs', keys: ['tariff'] },
   { view: 'sessions', label: 'Sessions', keys: ['sessions', 'transactions'] },
   { view: 'stations', label: 'Stations', keys: ['stations', 'charge points', 'chargers'] },
-  { view: 'dashboard', label: 'Dashboard', keys: ['dashboard', 'home kpis', 'the kpis'] },
+  { view: 'dashboard', label: 'Dashboard', keys: ['dashboard', 'home kpis', 'the kpis', 'approve queue', 'action queue', 'approvals'] },
   { view: 'demand', label: 'Demand', keys: ['demand', 'forecast'] },
   { view: 'security', label: 'Security', keys: ['security', 'certificates'] },
   { view: 'roles', label: 'Roles', keys: ['roles', 'iam'] },
@@ -39,7 +39,7 @@ export function parseNavIntent(question) {
     .replace(/\s+/g, ' ');
   if (!q) return null;
   const hasVerb =
-    /^(please\s+)?(take me|take us|bring me|bring us|open|go to|goto|show me|show|switch to|navigate to|head to|jump to)\b/.test(
+    /^(please\s+)?(take me|take us|bring me|bring us|open|go to|goto|show me|show|switch to|navigate to|head to|jump to|open up)\b/.test(
       q
     );
   const hasPlace = /\b(section|page|screen|tab)\b/.test(q);
