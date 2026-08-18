@@ -231,13 +231,17 @@ export default function Assistant({ me, users = [], onAgentWalk }) {
       (async () => {
         if (modes.includes(nextMode)) setMode(nextMode);
         setDraft('');
-        await new Promise((r) => setTimeout(r, 320));
+        await new Promise((r) => setTimeout(r, 550));
         if (tourDemoGen.current !== gen) return;
         for (let i = 1; i <= prompt.length; i++) {
           if (tourDemoGen.current !== gen) return;
           setDraft(prompt.slice(0, i));
-          await new Promise((r) => setTimeout(r, 26));
+          const ch = prompt[i - 1];
+          const delay = ch === ' ' ? 280 : /[-.]/.test(ch) ? 200 : 115;
+          await new Promise((r) => setTimeout(r, delay));
         }
+        if (tourDemoGen.current !== gen) return;
+        await new Promise((r) => setTimeout(r, 900));
         if (tourDemoGen.current !== gen) return;
         sendRef.current(prompt, { mode: nextMode });
       })();
