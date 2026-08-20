@@ -211,25 +211,29 @@ export function parseAgentIntents(question) {
   }
 
   const cpWithId = q.match(
-    /\b(?:add|create|enroll|register|make|provision|onboard|pair)(?:\s+me)?\s+(?:a\s+|an\s+|new\s+)?(?:charge\s*point|charger|cp)\s+(?:named\s+|called\s+|id\s+|with id\s+)?["']?([A-Za-z0-9._:-]{2,64})["']?\s+(?:at|to|under|in|on)\s+(?:station\s+)?["']?([A-Za-z0-9 ._-]{2,80}?)["']?(?=\s+(?:and|then|,|$)|$)/i
+    /\b(?:add|create|enroll|register|make|provision|onboard|pair)(?:\s+me)?\s+(?:a\s+|an\s+|new\s+)?(?:charge\s*point|charging\s*point|chargepoint|charger|cp|evse)\s+(?:named\s+|called\s+|id\s+|with id\s+)?["']?([A-Za-z0-9._:-]{2,64})["']?\s+(?:at|to|under|in|on)\s+(?:station\s+)?["']?([A-Za-z0-9 ._-]{2,80}?)["']?(?=\s+(?:and|then|,|$)|$)/i
   );
   const cpIdOnly = q.match(
-    /\b(?:add|create|enroll|register|make|provision|onboard|pair)(?:\s+me)?\s+(?:a\s+|an\s+|new\s+)?(?:charge\s*point|charger|cp)\s+(?:named\s+|called\s+|id\s+|with id\s+)["']?([A-Za-z0-9._:-]{2,64})["']?(?=\s+(?:and|then|,|$)|$)/i
+    /\b(?:add|create|enroll|register|make|provision|onboard|pair)(?:\s+me)?\s+(?:a\s+|an\s+|new\s+)?(?:charge\s*point|charging\s*point|chargepoint|charger|cp|evse)\s+(?:named\s+|called\s+|id\s+|with id\s+)?["']?([A-Za-z0-9._:-]{2,64})["']?(?=\s+(?:and|then|,|at\b|to\b|under\b|in\b|on\b)|$)/i
   );
   const cpAtSite = q.match(
-    /\b(?:add|create|enroll|register|make|provision|onboard|pair)(?:\s+me)?\s+(?:a\s+|an\s+|new\s+)?(?:charge\s*point|charger|cp)\s+(?:at|to|under|in|on)\s+(?:station\s+)?["']?([A-Za-z0-9 ._-]{2,80}?)["']?(?=\s+(?:and|then|,|$)|$)/i
+    /\b(?:add|create|enroll|register|make|provision|onboard|pair)(?:\s+me)?\s+(?:a\s+|an\s+|new\s+)?(?:charge\s*point|charging\s*point|chargepoint|charger|cp|evse)\s+(?:at|to|under|in|on)\s+(?:station\s+)?["']?([A-Za-z0-9 ._-]{2,80}?)["']?(?=\s+(?:and|then|,|$)|$)/i
   );
   const enrollMatch = q.match(
     /\b(?:enroll|pair)\s+["']?([A-Za-z0-9._:-]{2,64})["']?(?:\s+(?:at|to|under|in|with)\s+(?:station\s+)?["']?([A-Za-z0-9][A-Za-z0-9 ._-]{0,78}?)["']?(?=\s+(?:and|then|,|please)|$))?/i
   );
 
   if (!calls.some((c) => c.tool === 'addChargePoint')) {
-    if (cpWithId && !/^(at|to|under|in|on)$/i.test(cpWithId[1])) {
+    if (cpWithId && !/^(at|to|under|in|on|named|called|id)$/i.test(cpWithId[1])) {
       calls.push({
         tool: 'addChargePoint',
         args: { stationId: cleanName(cpWithId[1]), site: cleanName(cpWithId[2]) },
       });
-    } else if (cpIdOnly) {
+    } else if (
+      cpIdOnly &&
+      !/^(at|to|under|in|on|named|called|id|a|an|new|the)$/i.test(cpIdOnly[1]) &&
+      !/^(at|to|under|in|on)\b/i.test(cpIdOnly[1])
+    ) {
       calls.push({ tool: 'addChargePoint', args: { stationId: cleanName(cpIdOnly[1]), site: '' } });
     } else if (cpAtSite) {
       calls.push({ tool: 'addChargePoint', args: { stationId: '', site: cleanName(cpAtSite[1]) } });
@@ -322,7 +326,10 @@ export function parseAgentIntents(question) {
 }
 
 function bareTool(q) {
-  if (/\b(add|create|enroll|register|make|provision|onboard|pair)\b/i.test(q) && /\b(charge\s*points?|chargers?|\bcp\b)\b/i.test(q)) {
+  if (
+    /\b(add|create|enroll|register|make|provision|onboard|pair)\b/i.test(q) &&
+    /\b(charge\s*points?|charging\s*points?|chargepoints?|chargers?|\bcp\b|evse)\b/i.test(q)
+  ) {
     return 'addChargePoint';
   }
   if (/\bsimulate\b/i.test(q) && /\b(charge\s*point|charger|station|cp)?\b/i.test(q)) return 'simulateChargePoint';
@@ -478,8 +485,13 @@ async function executeOne(registry, call, actor) {
       if (!tariff) throw new Error('No tariff in the book');
       if (cp.simulated) {
         const result = await registry.callStation(cp.stationId, 'SetDefaultTariff', {
-          evseId: 1,
-          tariffId: tariff.tariffId,
+          evseId: 0,
+          tariff: {
+            tariffId: tariff.tariffId,
+            currency: tariff.currency,
+            energyKwh: tariff.energyKwh,
+            description: tariff.description,
+          },
         });
         return { summary: `Set default tariff ${tariff.tariffId} on simulated ${cp.stationId}`, data: result };
       }

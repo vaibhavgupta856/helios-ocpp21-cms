@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { defaultCsResponse, nowIso } from './catalog.js';
+import { defaultCsResponse, nowIso, getTariffsResult } from './catalog.js';
 import {
   MessageType,
   parseMessage,
@@ -125,10 +125,7 @@ export class Station extends EventEmitter {
       };
     }
     if (action === 'GetTariffs') {
-      return {
-        status: 'Accepted',
-        tariff: this.registry.listTariffs(),
-      };
+      return getTariffsResult(this.tariffs, body.evseId ?? 0);
     }
     if (action === 'GetInstalledCertificateIds') {
       return {
@@ -188,7 +185,30 @@ export class Station extends EventEmitter {
         return Promise.reject(new Error(`${this.stationId} is offline`));
       }
       return new Promise((resolve, reject) => {
-        this.outboundQueue.push({ action, body, resolve, reject });
+        const queuedAt = nowIso();
+        this.registry.trace({
+          stationId: this.stationId,
+          direction: 'csms→cs',
+          type: 'CALL',
+          action,
+          messageId: `queued-${Date.now()}`,
+          payload: body,
+          queued: true,
+          at: queuedAt,
+        });
+        const entry = { action, body, resolve, reject, queuedAt };
+        this.outboundQueue.push(entry);
+        entry.queueTimer = setTimeout(() => {
+          const idx = this.outboundQueue.indexOf(entry);
+          if (idx >= 0) {
+            this.outboundQueue.splice(idx, 1);
+            reject(
+              new Error(
+                `${this.stationId} is still offline after 30s — connect the charge point, then retry ${action}`
+              )
+            );
+          }
+        }, 30000);
         this.flushOutbound();
       });
     }
@@ -208,16 +228,19 @@ export class Station extends EventEmitter {
     const timer = setTimeout(() => {
       this.pending.delete(messageId);
       this.outboundBusy = false;
+      clearTimeout(next.queueTimer);
       next.reject(new Error(`Timeout waiting for ${next.action}`));
       this.flushOutbound();
     }, 30000);
     this.pending.set(messageId, {
       resolve: (payload) => {
+        clearTimeout(next.queueTimer);
         this.outboundBusy = false;
         next.resolve(payload);
         this.flushOutbound();
       },
       reject: (err) => {
+        clearTimeout(next.queueTimer);
         this.outboundBusy = false;
         next.reject(err);
         this.flushOutbound();
@@ -296,15 +319,29 @@ export class Station extends EventEmitter {
             new Error(`${msg.errorCode}: ${msg.errorDescription || kind}`)
           );
         }
-      } else if (msg.type === MessageType.CALLRESULT) {
-        this.sendFrame(
-          serializeCallResultError(
-            msg.messageId,
-            ErrorCode.ProtocolError,
-            'No matching CALL for this CALLRESULT',
-            {}
-          )
-        );
+      } else {
+        this.registry.trace({
+          stationId: this.stationId,
+          direction: 'cs→csms',
+          type: kind,
+          action: '',
+          messageId: msg.messageId,
+          payload:
+            msg.type === MessageType.CALLRESULT
+              ? msg.payload
+              : { code: msg.errorCode, description: msg.errorDescription, details: msg.errorDetails },
+          orphan: true,
+        });
+        if (msg.type === MessageType.CALLRESULT) {
+          this.sendFrame(
+            serializeCallResultError(
+              msg.messageId,
+              ErrorCode.ProtocolError,
+              'No matching CALL for this CALLRESULT',
+              {}
+            )
+          );
+        }
       }
       this.emit('result', msg);
       return;
@@ -625,8 +662,30 @@ export class Station extends EventEmitter {
         this.registry.addDerEvent({ stationId: this.stationId, action, payload });
         return {};
       case 'NotifySettlement':
-      case 'NotifyWebPaymentStarted':
         this.registry.addPayment({ stationId: this.stationId, action, payload, at: nowIso() });
+        return {};
+      case 'OpenPeriodicEventStream': {
+        const stream = payload.constantStreamData || { id: 1, variableMonitoringId: 1, params: {} };
+        this.periodicStreams = [
+          ...this.periodicStreams.filter((s) => s.id !== stream.id),
+          stream,
+        ];
+        this.registry.addStreamSample({
+          stationId: this.stationId,
+          kind: 'open',
+          payload,
+          at: nowIso(),
+        });
+        return { status: 'Accepted' };
+      }
+      case 'ClosePeriodicEventStream':
+        this.periodicStreams = this.periodicStreams.filter((s) => s.id !== payload.id);
+        this.registry.addStreamSample({
+          stationId: this.stationId,
+          kind: 'close',
+          payload,
+          at: nowIso(),
+        });
         return {};
       case 'VatNumberValidation':
         this.registry.addPayment({ stationId: this.stationId, action, payload, at: nowIso() });

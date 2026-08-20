@@ -57,6 +57,8 @@ export default function Trace({ messages, stations }) {
                 <span>{m.stationId}</span>
                 <span>{m.messageId}</span>
                 {m.simulated ? <span>sim</span> : null}
+                {m.queued ? <span>queued</span> : null}
+                {m.orphan ? <span>orphan</span> : null}
               </div>
               <pre className="payload mono">{pretty(m.payload)}</pre>
             </div>

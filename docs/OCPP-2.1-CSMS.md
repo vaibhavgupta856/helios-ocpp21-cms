@@ -2,6 +2,9 @@
 
 Helios implements enough **OCPP 2.1 JSON** for a lab CSMS. It is not an OCA-certified stack.
 
+Full message catalog (91 messages, blocks A–S): [OCPP-2.1-Messages-Reference.md](./OCPP-2.1-Messages-Reference.md).  
+Runtime catalog API: `GET /api/catalog` (includes default CSMS→CS payloads for the operator UI).
+
 - Transport: WebSocket, subprotocol **`ocpp2.1`**
 - Charge point is the **client**; Helios is the **server**
 - Path: `/ocpp/2.1/{stationId}`

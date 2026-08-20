@@ -958,6 +958,7 @@ function isLocalMiss(text) {
 /** True when this turn would call the LLM as the answerer (not a live-CMS rewrite). */
 function turnNeedsLlmApi({ question, local, nav, job, executed, mode }) {
   if (nav) return false;
+  if (wantsMutation(question)) return false;
   if (job?.divert || job?.needsInput) return false;
   if ((executed || []).some((e) => e.ok)) return false;
   if (job?.calls?.length && (mode === 'agent' || mode === 'multitask')) return false;
@@ -965,7 +966,7 @@ function turnNeedsLlmApi({ question, local, nav, job, executed, mode }) {
   if (looksLikeCmsQuestion(question) || isLiveOpsQuestion(question)) return false;
   if (hasKnownGeneralAnswer(question)) return false;
   if (isLlmPrimaryQuestion(question)) return true;
-  if (isLocalMiss(local) && !looksLikeCmsQuestion(question)) return true;
+  if (isLocalMiss(local) && !looksLikeCmsQuestion(question) && !wantsMutation(question)) return true;
   return false;
 }
 
@@ -1239,7 +1240,18 @@ function opsPlan(briefing) {
 export async function askAssistant(registry, { question, history, agentMode, mode, tools, actor, pendingJob = null, livePackEnabled = false, signal = null } = {}) {
   const q = String(question || '').trim();
   if (!q) throw new Error('question is required');
-  const resolved = normalizeMode({ mode, agentMode });
+  let resolved = normalizeMode({ mode, agentMode });
+  // CMS writes (add CP, tenant, RFID, …) always run locally — never wait on an API key.
+  // If the operator is still in Ask but has Agent permission, escalate this turn.
+  if (
+    resolved === 'ask' &&
+    wantsMutation(q) &&
+    actor &&
+    can(actor, 'assistant.agent') &&
+    !isLlmPrimaryQuestion(q)
+  ) {
+    resolved = 'agent';
+  }
   if (actor && !can(actor, `assistant.${resolved}`)) {
     const err = new Error(`${actor.name} (${roleLabel(actor.role)}) cannot use ${resolved} mode`);
     err.status = 403;
@@ -1298,16 +1310,28 @@ export async function askAssistant(registry, { question, history, agentMode, mod
   }
 
   const access = llmAccess();
-  if (isLlmPrimaryQuestion(q) && !access.ok && !pendingJob && !isLiveOpsQuestion(q) && !looksLikeCmsQuestion(q)) {
+  if (
+    isLlmPrimaryQuestion(q) &&
+    !access.ok &&
+    !pendingJob &&
+    !isLiveOpsQuestion(q) &&
+    !looksLikeCmsQuestion(q) &&
+    !wantsMutation(q)
+  ) {
     return blockedLlmResult(registry, q, resolved, canMutate, access);
   }
 
   const regexPending = pendingJob?.calls?.length && pendingJob.type !== 'ask_operator';
+  // Prefer deterministic local Agent tools for CMS writes (add CP, tenant, RFID…).
+  // Do not send those turns through the LLM loop — that wrongly demanded an API key
+  // (or hung on Ollama) even though enroll/create is fully local.
+  const preferLocalMutate = canMutate && wantsMutation(q);
   const canLoop =
     access.ok &&
     canMutate &&
     !extraTools.length &&
-    !regexPending;
+    !regexPending &&
+    !preferLocalMutate;
 
   if (canLoop) {
     if (isCancel(q) && pendingJob) {

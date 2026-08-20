@@ -8,7 +8,7 @@ import { mdTable } from './replyFormat.js';
 import { ROLES } from '../iam.js';
 
 const CMS_TERM =
-  /\b(helios|voltforge|csms|cms|ocpp(?:\s*2\.?1)?|wss|websocket|evse|charge[- ]?points?|chargers?|stations?|hubs?|depots?|tenants?|tariffs?|rfid|tokens?|sessions?|transactions?|firmware|approve|approvals?|enroll(?:ed|ing)?|commission(?:ing)?|simulate(?:d|r)?|twin|dashboard|demand|planner|security|mtls|tls|idtags?|id\s*tokens?|connectors?|outlets?|guns?|bootnotification|heartbeat|reset|unlock|availability|authorize|authorization|reservations?|smart\s*charg(?:e|ing)|profile\s*[012]|roles?|iam|kpis?|queue|pair(?:ing)?|lab\s*csms|central\s*system|setdefaulttariff|requeststart|transactionevent|emaid|local\s*list|site\s*planner|digital\s*twin|action\s*queue|certificates?|diagnostics?)\b/i;
+  /\b(helios|voltforge|csms|cms|ocpp(?:\s*2\.?1)?|wss|websocket|evse|charge[- ]?points?|charging\s*points?|chargepoints?|cp|chargers?|stations?|hubs?|depots?|tenants?|tariffs?|rfid|tokens?|sessions?|transactions?|firmware|approve|approvals?|enroll(?:ed|ing)?|commission(?:ing)?|simulate(?:d|r)?|twin|dashboard|demand|planner|security|mtls|tls|idtags?|id\s*tokens?|connectors?|outlets?|guns?|bootnotification|heartbeat|reset|unlock|availability|authorize|authorization|reservations?|smart\s*charg(?:e|ing)|profile\s*[012]|roles?|iam|kpis?|queue|pair(?:ing)?|lab\s*csms|central\s*system|setdefaulttariff|requeststart|transactionevent|emaid|local\s*list|site\s*planner|digital\s*twin|action\s*queue|certificates?|diagnostics?)\b/i;
 
 const CMS_ID = /\b(?:massive|orbit|volt|him|vf|cp|sim|rfid|card|fob|token|emaid)[-_][a-z0-9._:-]+\b/i;
 
@@ -26,8 +26,14 @@ export function looksLikeCmsQuestion(question) {
   ) {
     return true;
   }
+  if (
+    /\b(add|create|enroll|register|make|provision|onboard|pair|simulate|move|block|reserve)\b/i.test(q) &&
+    /\b(tenant|station|hub|depot|charger|charge|charging|token|rfid|tariff|cp|evse|reservation)\b/i.test(q)
+  ) {
+    return true;
+  }
   if (HOW_TO.test(q) && /\b(add|create|open|connect|pair|start|stop|approve|restart|enroll|list|show|queue|push)\b/i.test(q)) {
-    if (/\b(tenant|station|hub|depot|charger|charge|token|rfid|tariff|page|screen|queue|firmware|session|reset|wss|ocpp)\b/i.test(q)) {
+    if (/\b(tenant|station|hub|depot|charger|charge|token|rfid|tariff|page|screen|queue|firmware|session|reset|wss|ocpp|cp|evse)\b/i.test(q)) {
       return true;
     }
   }
@@ -340,15 +346,16 @@ function howTo(q, briefing) {
     ].join('\n');
   }
 
-  if (/\b(add|create|enroll|register|new)\b/.test(q) && /\b(tenant|station|hub|depot|charge\s*point|charger|cp)\b/.test(q)) {
+  if (/\b(add|create|enroll|register|new)\b/.test(q) && /\b(tenant|station|hub|depot|charge\s*point|charging\s*point|chargepoint|charger|\bcp\b|evse)\b/.test(q)) {
     return [
       '## Add tenant / station / charge point',
       '',
-      'Switch to **Agent**. Ask mode only explains.',
+      'I can do this **locally in Agent** — no API key. If you are still in Ask, switch to **Agent** (or say the same line there).',
       '',
       '- `Add tenant FleetCo with a station Indiranagar Hub in Bengaluru and a charge point CP-01`',
       '- `Add station Koramangala Hub in Bengaluru`',
       '- `Add a charge point VF-CP-21 at Whitefield Hub`',
+      '- `Add CP DEMO-01 at Whitefield Hub`',
       '- `Enroll MASSIVE-WF-99 at Whitefield Hub`',
       '',
       'If a tenant, hub, or OCPP ID is missing, Helios asks before writing. After enroll, commission **WSS** in Voltforge (base only). Simulated CPs skip that.',

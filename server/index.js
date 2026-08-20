@@ -386,8 +386,13 @@ app.post(
     }
     const { action, payload } = req.body || {};
     if (!action) return res.status(400).json({ error: 'action is required' });
-    const result = await registry.callStation(req.params.id, action, payload);
-    res.json(result);
+    try {
+      const result = await registry.callStation(req.params.id, action, payload);
+      res.json(result);
+    } catch (err) {
+      const status = err.code === 'STATION_OFFLINE' ? 409 : 500;
+      res.status(status).json({ error: err.message, code: err.code || 'CALL_FAILED' });
+    }
   })
 );
 

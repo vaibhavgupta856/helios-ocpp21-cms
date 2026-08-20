@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { buildOrgTree, stationLabel } from '../org.js';
 import { isWalkHit } from '../agentWalk.js';
 import JsonEditor from '../components/JsonEditor.jsx';
+import CallResultPanel from '../components/CallResultPanel.jsx';
 import { pretty } from '../api.js';
 
 function connectionUrls(stationId, security) {
@@ -42,6 +43,7 @@ export default function Stations({
   const canCall = can('ocpp.call');
   const canAssign = can('org.assign');
   const [busy, setBusy] = useState('');
+  const [callResult, setCallResult] = useState(null);
   const [stopTxId, setStopTxId] = useState('');
   const [idToken, setIdToken] = useState('RFID-MASSIVE-01');
   const [startEvseId, setStartEvseId] = useState(1);
@@ -229,8 +231,27 @@ export default function Stations({
 
   const run = async (action, payload) => {
     setBusy(action);
+    setError('');
+    setCallResult(null);
     try {
-      await callStation(action, payload, selected?.stationId);
+      const res = await callStation(action, payload, selected?.stationId);
+      setCallResult({
+        action: res.action || action,
+        stationId: selected?.stationId,
+        payload: res.payload ?? payload,
+        result: res.result,
+      });
+      return res;
+    } catch (err) {
+      const message = err.message || String(err);
+      setError(message);
+      setCallResult({
+        action,
+        stationId: selected?.stationId,
+        payload,
+        error: message,
+      });
+      throw err;
     } finally {
       setBusy('');
     }
@@ -762,6 +783,10 @@ export default function Stations({
               {canCall ? (
               <div className="card">
                 <h3>Remote operations</h3>
+                <p className="muted">
+                  Needs a <strong>live</strong> charge point (WebSocket open — see Live Trace for BootNotification) or a{' '}
+                  <strong>(sim)</strong> station for instant demo responses. Offline enrolled IDs return an error immediately.
+                </p>
                 <div className="ops">
                   <button type="button" className="btn" disabled={!!busy} onClick={() => run('Reset', { type: 'OnIdle' })}>
                     Reset
@@ -887,6 +912,7 @@ export default function Stations({
 
                 {selectedAction ? (
                   <div style={{ marginTop: '0.85rem' }}>
+                    {selectedAction.purpose && <p className="muted">{selectedAction.purpose}</p>}
                     <p className="muted">
                       Payload for <code>{selectedAction.action}</code> (defaults prefilled). Edit and send.
                     </p>
@@ -917,6 +943,7 @@ export default function Stations({
                   </div>
                 ) : null}
                 {busy ? <p className="muted">Sending {busy}…</p> : null}
+                <CallResultPanel result={callResult} onClear={() => setCallResult(null)} />
               </div>
               ) : null}
             </>

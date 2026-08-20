@@ -30,7 +30,7 @@ const SUGGESTIONS = {
 const COPY = {
   ask: {
     subtitle: 'Ask — live CMS answers. No API key needed for operator work.',
-    banner: 'Ask reads the live network. Switch to Agent to add a tenant, hub, charge point, or RFID.',
+    banner: 'Ask reads the live network. Say “Add a charge point …” and Helios will switch to Agent for that write (no API key). Or open Agent yourself.',
     empty: 'Ask about a hub, what is online, WSS pairing, RFID, Demand, or Approve. I will not change the CMS here.',
     placeholder: 'Status of Whitefield Hub, how do I add RFID, pair Voltforge on WSS…',
     button: 'Ask',
@@ -640,7 +640,7 @@ export default function Assistant({ me, users = [], onAgentWalk }) {
         ) : (
           <>
             <span className="llm-chip none">No API key</span>
-            Live CMS Ask and Agent work without a key. Optional API key (or Ollama) is only for jokes, poems, and off-topic write-ups.
+            Live CMS Ask and Agent work without a key. Adding a charge point, tenant, hub, or RFID is always local — no API key. Optional key (or Ollama) is only for jokes, poems, and off-topic write-ups.
           </>
         )}
         {me ? ` · asking as ${me.name}` : ''}

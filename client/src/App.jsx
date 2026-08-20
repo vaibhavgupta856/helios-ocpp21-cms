@@ -58,7 +58,7 @@ export default function App() {
   const [derEvents, setDerEvents] = useState([]);
   const [batterySwaps, setBatterySwaps] = useState([]);
   const [streamSamples, setStreamSamples] = useState([]);
-  const [selectedStationId, setSelectedStationId] = useState('');
+  const [selectedStationId, setSelectedStationId] = useState(() => localStorage.getItem('helios.station.selected') || '');
   const [tenants, setTenants] = useState([]);
   const [sites, setSites] = useState([]);
   const [notice, setNotice] = useState('');
@@ -450,7 +450,11 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (!selectedStationId && scoped.stations[0]) setSelectedStationId(scoped.stations[0].stationId);
+    if (selectedStationId) {
+      localStorage.setItem('helios.station.selected', selectedStationId);
+      return;
+    }
+    if (scoped.stations[0]) setSelectedStationId(scoped.stations[0].stationId);
   }, [scoped.stations, selectedStationId]);
 
   useEffect(() => {
@@ -466,7 +470,12 @@ export default function App() {
       method: 'POST',
       body: JSON.stringify({ action, payload }),
     });
-    setNotice(`${action} → ${JSON.stringify(result.result)}`);
+    const status = result.result?.status;
+    setNotice(
+      status != null
+        ? `${action} → ${status}`
+        : `${action} → CALLRESULT received (see panel below the controls)`
+    );
     return result;
   };
 

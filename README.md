@@ -20,6 +20,7 @@ This repository is a **Charging Station Management System (CSMS / central system
 | [docs/Developer-Guide.md](docs/Developer-Guide.md) | Local run, architecture, REST, env |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | Render, env vars, hosted WSS |
 | [docs/OCPP-2.1-CSMS.md](docs/OCPP-2.1-CSMS.md) | What Helios sends and accepts on the wire |
+| [docs/OCPP-2.1-Messages-Reference.md](docs/OCPP-2.1-Messages-Reference.md) | All 91 OCPP 2.1 messages (blocks A–S), payload shapes |
 
 ---
 

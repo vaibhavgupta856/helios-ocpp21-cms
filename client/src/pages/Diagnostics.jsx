@@ -73,18 +73,31 @@ export default function Diagnostics({
             type="button"
             className="btn"
             onClick={() =>
-              callStation('OpenPeriodicEventStream', {
-                constantStreamData: { id: 1, params: { interval: 10, values: 1 } },
+              callStation('SetVariableMonitoring', {
+                setMonitoringData: [
+                  {
+                    id: 1,
+                    value: 80,
+                    type: 'UpperThreshold',
+                    severity: 3,
+                    component: { name: 'TemperatureSensor' },
+                    variable: { name: 'Temperature' },
+                  },
+                ],
               })
             }
           >
-            OpenPeriodicEventStream
+            SetVariableMonitoring (opens CP stream)
           </button>
           <button type="button" className="btn" onClick={() => callStation('GetPeriodicEventStream', {})}>
             GetPeriodicEventStream
           </button>
-          <button type="button" className="btn" onClick={() => callStation('ClosePeriodicEventStream', { id: 1 })}>
-            ClosePeriodicEventStream
+          <button
+            type="button"
+            className="btn"
+            onClick={() => callStation('AdjustPeriodicEventStream', { id: 1, params: { interval: 5, values: 1 } })}
+          >
+            AdjustPeriodicEventStream
           </button>
         </div>
       </div>

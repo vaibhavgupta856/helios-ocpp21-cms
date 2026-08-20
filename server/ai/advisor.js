@@ -44,7 +44,7 @@ export function isKeepRemoveQuestion(question) {
 }
 
 const CMS_MUTATE =
-  /\b(tenant|station|charge point|charger|token|tariff|reservation|hub|depot)\b/i;
+  /\b(tenant|station|charge\s*point|charging\s*point|chargepoint|charger|token|tariff|reservation|hub|depot|cp|evse)\b/i;
 
 /** Off-CMS / generative asks that would call the OpenAI-compatible API as the answerer. */
 export function isLlmPrimaryQuestion(question) {

@@ -1,142 +1,85 @@
 /**
- * OCPP 2.1 Edition 2 message catalog (91 actions).
+ * OCPP 2.1 Edition 2 message catalog (91 messages, blocks A–S).
+ * Payload shapes follow docs/OCPP-2.1-Messages-Reference.md.
  * CALL = [2, messageId, action, payload]
  * CALLRESULT = [3, messageId, payload]
  * CALLERROR = [4, messageId, errorCode, errorDescription, errorDetails]
  */
+
+import {
+  SPEC_MESSAGE_COUNT,
+  FUNCTIONAL_BLOCKS,
+  MESSAGE_CATALOG,
+  CS_TO_CSMS,
+  CSMS_TO_CS,
+  ALL_ACTIONS,
+  BLOCKS,
+  MESSAGE_BY_ACTION,
+  messagePurpose,
+  messageDirection,
+} from './ocpp21-messages.js';
+
+export {
+  SPEC_MESSAGE_COUNT,
+  FUNCTIONAL_BLOCKS,
+  MESSAGE_CATALOG,
+  CS_TO_CSMS,
+  CSMS_TO_CS,
+  ALL_ACTIONS,
+  BLOCKS,
+  MESSAGE_BY_ACTION,
+  messagePurpose,
+  messageDirection,
+};
 
 export const CALL = 2;
 export const CALLRESULT = 3;
 export const CALLERROR = 4;
 export const SUBPROTOCOL = 'ocpp2.1';
 
-/** CS → CSMS (station initiated) */
-export const CS_TO_CSMS = [
-  { action: 'BootNotification', block: 'Provisioning' },
-  { action: 'Heartbeat', block: 'Provisioning' },
-  { action: 'StatusNotification', block: 'Provisioning' },
-  { action: 'NotifyReport', block: 'Provisioning' },
-  { action: 'Authorize', block: 'Authorization' },
-  { action: 'TransactionEvent', block: 'Transactions' },
-  { action: 'MeterValues', block: 'Transactions' },
-  { action: 'ClearedChargingLimit', block: 'SmartCharging' },
-  { action: 'NotifyChargingLimit', block: 'SmartCharging' },
-  { action: 'ReportChargingProfiles', block: 'SmartCharging' },
-  { action: 'NotifyEVChargingSchedule', block: 'SmartCharging' },
-  { action: 'NotifyEVChargingNeeds', block: 'SmartCharging' },
-  { action: 'FirmwareStatusNotification', block: 'Firmware' },
-  { action: 'PublishFirmwareStatusNotification', block: 'Firmware' },
-  { action: 'Get15118EVCertificate', block: 'Security' },
-  { action: 'GetCertificateStatus', block: 'Security' },
-  { action: 'SignCertificate', block: 'Security' },
-  { action: 'SecurityEventNotification', block: 'Security' },
-  { action: 'LogStatusNotification', block: 'Diagnostics' },
-  { action: 'NotifyEvent', block: 'Diagnostics' },
-  { action: 'NotifyMonitoringReport', block: 'Diagnostics' },
-  { action: 'NotifyCustomerInformation', block: 'Diagnostics' },
-  { action: 'NotifyDisplayMessages', block: 'Display' },
-  { action: 'ReservationStatusUpdate', block: 'Reservation' },
-  { action: 'DataTransfer', block: 'DataTransfer' },
-  { action: 'ReportDERControl', block: 'DERControl' },
-  { action: 'NotifyDERAlarm', block: 'DERControl' },
-  { action: 'NotifyDERStartStop', block: 'DERControl' },
-  { action: 'BatterySwap', block: 'BatterySwap' },
-  { action: 'NotifySettlement', block: 'TariffAndCost' },
-  { action: 'NotifyWebPaymentStarted', block: 'TariffAndCost' },
-  { action: 'VatNumberValidation', block: 'TariffAndCost' },
-  { action: 'PullDynamicScheduleUpdate', block: 'SmartCharging' },
-  { action: 'NotifyPriorityCharging', block: 'SmartCharging' },
-  { action: 'NotifyPeriodicEventStream', block: 'PeriodicEventStream' },
-  { action: 'GetCertificateChainStatus', block: 'Certificates' },
-];
-
-/** CSMS → CS (operator / backend initiated) */
-export const CSMS_TO_CS = [
-  { action: 'GetVariables', block: 'Provisioning' },
-  { action: 'SetVariables', block: 'Provisioning' },
-  { action: 'GetBaseReport', block: 'Provisioning' },
-  { action: 'GetReport', block: 'Provisioning' },
-  { action: 'SetNetworkProfile', block: 'Provisioning' },
-  { action: 'Reset', block: 'Provisioning' },
-  { action: 'ClearCache', block: 'Authorization' },
-  { action: 'SendLocalList', block: 'Authorization' },
-  { action: 'GetLocalListVersion', block: 'Authorization' },
-  { action: 'RequestStartTransaction', block: 'RemoteControl' },
-  { action: 'RequestStopTransaction', block: 'RemoteControl' },
-  { action: 'GetTransactionStatus', block: 'Transactions' },
-  { action: 'TriggerMessage', block: 'RemoteControl' },
-  { action: 'UnlockConnector', block: 'RemoteControl' },
-  { action: 'ChangeAvailability', block: 'Availability' },
-  { action: 'SetChargingProfile', block: 'SmartCharging' },
-  { action: 'GetChargingProfiles', block: 'SmartCharging' },
-  { action: 'ClearChargingProfile', block: 'SmartCharging' },
-  { action: 'GetCompositeSchedule', block: 'SmartCharging' },
-  { action: 'UpdateFirmware', block: 'Firmware' },
-  { action: 'PublishFirmware', block: 'Firmware' },
-  { action: 'UnpublishFirmware', block: 'Firmware' },
-  { action: 'CertificateSigned', block: 'Security' },
-  { action: 'InstallCertificate', block: 'Security' },
-  { action: 'DeleteCertificate', block: 'Security' },
-  { action: 'GetInstalledCertificateIds', block: 'Security' },
-  { action: 'GetLog', block: 'Diagnostics' },
-  { action: 'SetMonitoringBase', block: 'Diagnostics' },
-  { action: 'SetVariableMonitoring', block: 'Diagnostics' },
-  { action: 'SetMonitoringLevel', block: 'Diagnostics' },
-  { action: 'GetMonitoringReport', block: 'Diagnostics' },
-  { action: 'ClearVariableMonitoring', block: 'Diagnostics' },
-  { action: 'CustomerInformation', block: 'Diagnostics' },
-  { action: 'CostUpdated', block: 'Display' },
-  { action: 'SetDisplayMessage', block: 'Display' },
-  { action: 'GetDisplayMessages', block: 'Display' },
-  { action: 'ClearDisplayMessage', block: 'Display' },
-  { action: 'ReserveNow', block: 'Reservation' },
-  { action: 'CancelReservation', block: 'Reservation' },
-  { action: 'DataTransfer', block: 'DataTransfer' },
-  { action: 'SetDERControl', block: 'DERControl' },
-  { action: 'GetDERControl', block: 'DERControl' },
-  { action: 'ClearDERControl', block: 'DERControl' },
-  { action: 'NotifyAllowedEnergyTransfer', block: 'Bidirectional' },
-  { action: 'AFRRSignal', block: 'Bidirectional' },
-  { action: 'RequestBatterySwap', block: 'BatterySwap' },
-  { action: 'GetTariffs', block: 'TariffAndCost' },
-  { action: 'SetDefaultTariff', block: 'TariffAndCost' },
-  { action: 'ChangeTransactionTariff', block: 'TariffAndCost' },
-  { action: 'ClearTariffs', block: 'TariffAndCost' },
-  { action: 'UpdateDynamicSchedule', block: 'SmartCharging' },
-  { action: 'UsePriorityCharging', block: 'SmartCharging' },
-  { action: 'OpenPeriodicEventStream', block: 'PeriodicEventStream' },
-  { action: 'ClosePeriodicEventStream', block: 'PeriodicEventStream' },
-  { action: 'GetPeriodicEventStream', block: 'PeriodicEventStream' },
-  { action: 'AdjustPeriodicEventStream', block: 'PeriodicEventStream' },
-];
-
-export const ALL_ACTIONS = [
-  ...new Set([...CS_TO_CSMS, ...CSMS_TO_CS].map((m) => m.action)),
-].sort();
-
-export const BLOCKS = [
-  'Provisioning',
-  'Authorization',
-  'Transactions',
-  'RemoteControl',
-  'Availability',
-  'SmartCharging',
-  'Firmware',
-  'Security',
-  'Certificates',
-  'Diagnostics',
-  'Display',
-  'Reservation',
-  'DataTransfer',
-  'DERControl',
-  'Bidirectional',
-  'BatterySwap',
-  'TariffAndCost',
-  'PeriodicEventStream',
-];
-
 export function nowIso() {
   return new Date().toISOString();
+}
+
+/** Book row → OCPP 2.1 TariffType (SetDefaultTariff / ChangeTransactionTariff). */
+export function ocppTariffFromBook(rec = {}) {
+  const nested = rec.tariff && typeof rec.tariff === 'object' ? rec.tariff : null;
+  const tariffId = rec.tariffId || nested?.tariffId || 'MASSIVE-AC-DEFAULT';
+  const currency = rec.currency || nested?.currency || 'EUR';
+  const price = Number(
+    rec.energyKwh ?? nested?.energy?.prices?.[0]?.priceKwh ?? 0.39
+  );
+  const description = rec.description || nested?.description?.[0]?.content || '';
+  const tariff = {
+    tariffId: String(tariffId).slice(0, 60),
+    currency: String(currency).slice(0, 3).toUpperCase() || 'EUR',
+    energy: { prices: [{ priceKwh: Number.isFinite(price) ? price : 0.39 }] },
+  };
+  if (description) {
+    tariff.description = [{ format: 'UTF8', language: 'en', content: String(description).slice(0, 1024) }];
+  }
+  return tariff;
+}
+
+export function getTariffsResult(installed = [], evseId = 0) {
+  const wanted = Number(evseId) || 0;
+  const list = (installed || []).filter((row) => {
+    const tariff = row.tariff || row;
+    if (!tariff?.tariffId) return false;
+    if (wanted === 0) return true;
+    const rowEvse = Number(row.evseId ?? 0);
+    return rowEvse === 0 || rowEvse === wanted;
+  });
+  if (!list.length) return { status: 'NoTariff' };
+  return {
+    status: 'Accepted',
+    tariffAssignments: list.map((row) => ({
+      tariffId: row.tariff?.tariffId || row.tariffId,
+      tariffKind: row.tariffKind || 'DefaultTariff',
+      evseIds: [Number(row.evseId ?? wanted ?? 0)],
+    })),
+    customData: { tariffs: list.map((row) => row.tariff || row) },
+  };
 }
 
 export function defaultCsmsPayload(action, ctx = {}) {
@@ -287,22 +230,35 @@ export function defaultCsmsPayload(action, ctx = {}) {
     },
     GetDERControl: { requestId, controlId: 'der-1' },
     ClearDERControl: { isDefault: true, controlId: 'der-1' },
-    NotifyAllowedEnergyTransfer: { allowedEnergyTransfer: ['AC_single_phase', 'DC'] },
+    NotifyWebPaymentStarted: { evseId, timeout: 120 },
+    NotifyAllowedEnergyTransfer: {
+      allowedEnergyTransfer: ['AC_single_phase', 'AC_three_phase', 'DC'],
+      transactionId,
+    },
     AFRRSignal: { timestamp: nowIso(), signal: 0 },
     RequestBatterySwap: { requestId, idToken },
-    GetTariffs: { evseId },
+    GetTariffs: { evseId: 0 },
     SetDefaultTariff: {
-      evseId,
-      tariffId: 'MASSIVE-AC-DEFAULT',
+      evseId: 0,
+      tariff: ocppTariffFromBook({
+        tariffId: 'MASSIVE-AC-DEFAULT',
+        currency: 'EUR',
+        energyKwh: 0.39,
+        description: 'Standard AC public tariff',
+      }),
     },
-    ChangeTransactionTariff: { tariffId: 'MASSIVE-AC-PEAK', transactionId },
+    ChangeTransactionTariff: {
+      transactionId,
+      tariff: ocppTariffFromBook({
+        tariffId: 'MASSIVE-AC-PEAK',
+        currency: 'EUR',
+        energyKwh: 0.55,
+        description: 'Peak-hours AC tariff',
+      }),
+    },
     ClearTariffs: { tariffIds: ['MASSIVE-AC-PEAK'] },
     UpdateDynamicSchedule: { chargingProfileId: 1, scheduleUpdate: { limit: 7000 } },
-    UsePriorityCharging: { activate: true },
-    OpenPeriodicEventStream: {
-      constantStreamData: { id: 1, params: { interval: 10, values: 1 } },
-    },
-    ClosePeriodicEventStream: { id: 1 },
+    UsePriorityCharging: { activate: true, transactionId },
     GetPeriodicEventStream: {},
     AdjustPeriodicEventStream: { id: 1, params: { interval: 5, values: 1 } },
   };
@@ -351,8 +307,20 @@ export function defaultCsResponse(action, payload = {}) {
     NotifyDERStartStop: ok,
     BatterySwap: accepted,
     NotifySettlement: accepted,
-    NotifyWebPaymentStarted: ok,
-    VatNumberValidation: { vatNumber: payload.vatNumber || '', status: 'Accepted' },
+    VatNumberValidation: {
+      status: 'Accepted',
+      vatNumber: payload.vatNumber || '',
+      evseId: payload.evseId ?? 0,
+      company: {
+        name: 'Massive Mobility Lab GmbH',
+        address1: '1 Lab Street',
+        city: 'Berlin',
+        country: 'DE',
+        postalCode: '10115',
+      },
+    },
+    OpenPeriodicEventStream: accepted,
+    ClosePeriodicEventStream: ok,
     PullDynamicScheduleUpdate: { status: 'Accepted' },
     NotifyPriorityCharging: ok,
     NotifyPeriodicEventStream: undefined,

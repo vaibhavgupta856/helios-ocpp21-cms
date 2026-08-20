@@ -1,9 +1,10 @@
 import { Station } from './ocpp/Station.js';
-import { nowIso, defaultCsmsPayload, CS_TO_CSMS, CSMS_TO_CS, BLOCKS, ALL_ACTIONS } from './ocpp/catalog.js';
+import { nowIso, defaultCsmsPayload, CS_TO_CSMS, CSMS_TO_CS, BLOCKS, ALL_ACTIONS, SPEC_MESSAGE_COUNT, MESSAGE_CATALOG, ocppTariffFromBook } from './ocpp/catalog.js';
 import { stationUrls, publicSecurity } from './security.js';
 import { attachAi, ensureSiteMeta, captureKpi } from './ai/index.js';
 import { attachOrg, assignChargePoint, compareChargePoints, orgSnapshot } from './org.js';
 import { seedLabWorld } from './labWorld.js';
+import { loadOperatorStore, saveOperatorStore } from './persist.js';
 
 function tokenKey(idToken) {
   return String(idToken || '').trim();
@@ -31,6 +32,7 @@ export class Registry {
     attachOrg(this);
     attachAi(this);
     seedLabWorld(this);
+    this.applyOperatorStore();
   }
 
   seed() {
@@ -71,11 +73,14 @@ export class Registry {
   catalog() {
     return {
       version: '2.1',
+      specMessageCount: SPEC_MESSAGE_COUNT,
       actionCount: ALL_ACTIONS.length,
+      listingCount: CS_TO_CSMS.length + CSMS_TO_CS.length,
       blocks: BLOCKS,
       csToCsms: CS_TO_CSMS,
       csmsToCs: CSMS_TO_CS,
       actions: ALL_ACTIONS,
+      messages: MESSAGE_CATALOG,
       defaults: Object.fromEntries(CSMS_TO_CS.map((m) => [m.action, defaultCsmsPayload(m.action)])),
     };
   }
@@ -125,6 +130,7 @@ export class Registry {
       }
     }
     const station = new Station({ stationId, ws, registry: this });
+    station.simulated = false;
     if (existing) {
       station.identity = existing.identity;
       station.evses = existing.evses;
@@ -245,10 +251,54 @@ export class Registry {
     return Number((Math.max(0, Number(kwh) || 0) * rate).toFixed(2));
   }
 
-  async callStation(stationId, action, payload) {
+  async callStation(stationId, action, payload, opts = {}) {
     const station = this.getStation(stationId);
     if (!station) throw new Error('Station not found');
+
+    const queueOffline = !!opts.queueOffline;
+    if (!station.isOpen() && !station.simulated) {
+      if (!queueOffline) {
+        const err = new Error(
+          `${stationId} is not connected over OCPP. Use a charge point with a green Live pill (WebSocket open), or a Sim station for instant demo responses. If Voltforge is running, commission it with this exact Charge Point ID and confirm BootNotification on Live Trace.`
+        );
+        err.code = 'STATION_OFFLINE';
+        throw err;
+      }
+    }
+
     let body = payload && Object.keys(payload).length ? payload : defaultCsmsPayload(action, { stationId });
+    if (action === 'SetDefaultTariff') {
+      const book = this.tariffFor(station, body.tariffId || body.tariff?.tariffId);
+      const tariff = body.tariff?.energy?.prices
+        ? body.tariff
+        : ocppTariffFromBook({ ...(book || {}), ...body, ...body.tariff });
+      body = { evseId: body.evseId ?? 0, tariff };
+      station.tariffs = [
+        { evseId: body.evseId, tariffKind: 'DefaultTariff', tariff: body.tariff, at: nowIso() },
+        ...station.tariffs.filter(
+          (row) => (row.tariff?.tariffId || row.tariffId) !== body.tariff.tariffId || Number(row.evseId) !== Number(body.evseId)
+        ),
+      ].slice(0, 20);
+      station.defaultTariffId = body.tariff.tariffId;
+    }
+    if (action === 'ChangeTransactionTariff') {
+      const book = this.tariffFor(station, body.tariffId || body.tariff?.tariffId);
+      const tariff = body.tariff?.energy?.prices
+        ? body.tariff
+        : ocppTariffFromBook({ ...(book || {}), ...body, ...body.tariff });
+      body = { transactionId: body.transactionId, tariff };
+    }
+    if (action === 'ClearTariffs') {
+      const ids = new Set(body.tariffIds || []);
+      const evseId = body.evseId;
+      station.tariffs = station.tariffs.filter((row) => {
+        const id = row.tariff?.tariffId || row.tariffId;
+        const rowEvse = Number(row.evseId ?? 0);
+        if (evseId != null && rowEvse !== 0 && rowEvse !== Number(evseId)) return true;
+        if (ids.size) return !ids.has(id);
+        return false;
+      });
+    }
 
     // Remote stop should be "operator friendly": if UI doesn't provide transactionId,
     // pick the currently active transaction for this station from stored TransactionEvent data.
@@ -297,16 +347,12 @@ export class Registry {
         localOnly: true,
       });
     }
-    if (action === 'SetDefaultTariff' || action === 'ChangeTransactionTariff') {
-      station.tariffs = [...station.tariffs, { action, payload: body, at: nowIso() }].slice(-20);
-      if (action === 'SetDefaultTariff' && body.tariffId) station.defaultTariffId = body.tariffId;
-    }
-    if (action === 'ChangeTransactionTariff' && body.tariffId && body.transactionId) {
+    if (action === 'ChangeTransactionTariff' && body.tariff?.tariffId && body.transactionId) {
       const tx = this.transactions.find((t) => t.transactionId === body.transactionId && t.stationId === stationId);
       if (tx) {
-        tx.tariffId = body.tariffId;
-        tx.cost = this.costForStation(station, tx.kwh, body.tariffId);
-        const tariff = this.tariffFor(station, body.tariffId);
+        tx.tariffId = body.tariff.tariffId;
+        tx.cost = this.costForStation(station, tx.kwh, body.tariff.tariffId);
+        const tariff = this.tariffFor(station, body.tariff.tariffId);
         if (tariff?.currency) tx.currency = tariff.currency;
         tx.updatedAt = nowIso();
         this.emitStore();
@@ -357,6 +403,18 @@ export class Registry {
       ].slice(0, 40);
     }
     const result = await station.sendCall(action, body);
+    if (action === 'GetTariffs') {
+      const installed = result?.customData?.tariffs;
+      if (Array.isArray(installed) && installed.length) {
+        station.tariffs = installed.map((tariff, i) => ({
+          evseId: result.tariffAssignments?.[i]?.evseIds?.[0] ?? body.evseId ?? 0,
+          tariffKind: result.tariffAssignments?.[i]?.tariffKind || 'DefaultTariff',
+          tariff,
+          at: nowIso(),
+        }));
+        if (installed[0]?.tariffId) station.defaultTariffId = installed[0].tariffId;
+      }
+    }
     if (action === 'GetInstalledCertificateIds' && Array.isArray(result?.certificateHashDataChain)) {
       station.installedCertificates = result.certificateHashDataChain;
     }
@@ -646,10 +704,45 @@ export class Registry {
     this.io?.emit('station:state', snap);
     this.io?.emit('cms:stations', this.listStations());
     captureKpi(this);
+    this.persistOperatorStore();
   }
 
   emitStore() {
     this.io?.emit('cms:store', this.storeSnapshot());
+    this.persistOperatorStore();
+  }
+
+  applyOperatorStore() {
+    const store = loadOperatorStore();
+    this._persistReady = true;
+    if (!store) {
+      this.persistOperatorStore();
+      return;
+    }
+    if (Array.isArray(store.tariffs) && store.tariffs.length) {
+      this.tariffs = store.tariffs;
+    }
+    for (const row of store.stationTariffs || []) {
+      const station = this.getStation(row.stationId);
+      if (!station) continue;
+      if (row.defaultTariffId) station.defaultTariffId = row.defaultTariffId;
+      if (Array.isArray(row.tariffs)) station.tariffs = row.tariffs;
+    }
+  }
+
+  persistOperatorStore() {
+    if (!this._persistReady) return;
+    saveOperatorStore({
+      savedAt: nowIso(),
+      tariffs: this.tariffs,
+      stationTariffs: [...this.stations.values()]
+        .map((station) => ({
+          stationId: station.stationId,
+          defaultTariffId: station.defaultTariffId,
+          tariffs: station.tariffs || [],
+        }))
+        .filter((row) => row.defaultTariffId || (row.tariffs && row.tariffs.length)),
+    });
   }
 
   storeSnapshot() {

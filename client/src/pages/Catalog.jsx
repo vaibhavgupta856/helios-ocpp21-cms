@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import StationPicker from '../components/StationPicker.jsx';
 import JsonEditor from '../components/JsonEditor.jsx';
+import CallResultPanel from '../components/CallResultPanel.jsx';
 import { pretty } from '../api.js';
 
 export default function Catalog({ catalog, stations, selectedStationId, setSelectedStationId, callStation }) {
@@ -44,15 +45,30 @@ export default function Catalog({ catalog, stations, selectedStationId, setSelec
     try {
       payload = JSON.parse(payloadText || '{}');
     } catch {
-      setResult({ error: 'Payload is not valid JSON' });
+      setResult({
+        action: selectedAction.action,
+        stationId: selectedStationId,
+        error: 'Payload is not valid JSON',
+      });
       return;
     }
     setSending(true);
+    setResult(null);
     try {
       const res = await callStation(selectedAction.action, payload);
-      setResult(res);
+      setResult({
+        action: res.action || selectedAction.action,
+        stationId: selectedStationId,
+        payload: res.payload ?? payload,
+        result: res.result,
+      });
     } catch (err) {
-      setResult({ error: err.message });
+      setResult({
+        action: selectedAction.action,
+        stationId: selectedStationId,
+        payload,
+        error: err.message,
+      });
     } finally {
       setSending(false);
     }
@@ -62,7 +78,7 @@ export default function Catalog({ catalog, stations, selectedStationId, setSelec
     <>
       <PageHeader
         title="Message Catalog"
-        subtitle={`${uniqueCount} unique OCPP 2.1 actions (${listedCount} listings including DataTransfer in both directions), grouped by functional block`}
+        subtitle={`${catalog?.specMessageCount || uniqueCount} OCPP 2.1 messages (${listedCount} direction listings). Shapes from OCPP-2.1-Messages-Reference.md`}
         tour="catalog-page"
       />
       <div className="card">
@@ -88,7 +104,10 @@ export default function Catalog({ catalog, stations, selectedStationId, setSelec
           <div className="action-grid">
             {g.items.map((item) => {
               const key = `${item.action}-${item.direction}`;
-              const active = selectedAction && selectedAction.action === item.action && selectedAction.direction === item.direction;
+              const active =
+                selectedAction &&
+                selectedAction.action === item.action &&
+                selectedAction.direction === item.direction;
               return (
                 <button
                   type="button"
@@ -107,8 +126,12 @@ export default function Catalog({ catalog, stations, selectedStationId, setSelec
       {selectedAction && (
         <div className="card">
           <h3>
-            {selectedAction.action} <span className="muted">{selectedAction.direction}</span>
+            {selectedAction.action}{' '}
+            <span className="muted">
+              #{selectedAction.num} · {selectedAction.direction}
+            </span>
           </h3>
+          {selectedAction.purpose && <p className="muted">{selectedAction.purpose}</p>}
           {selectedAction.direction === 'CSMS → CS' ? (
             <>
               <JsonEditor value={payloadText} onChange={setPayloadText} />
@@ -117,6 +140,8 @@ export default function Catalog({ catalog, stations, selectedStationId, setSelec
                   Send CALL
                 </button>
               </div>
+              {sending ? <p className="muted">Sending {selectedAction.action}…</p> : null}
+              <CallResultPanel result={result} onClear={() => setResult(null)} />
             </>
           ) : (
             <p className="muted">
@@ -124,7 +149,6 @@ export default function Catalog({ catalog, stations, selectedStationId, setSelec
               action.
             </p>
           )}
-          {result && <pre className="payload mono">{pretty(result)}</pre>}
         </div>
       )}
     </>

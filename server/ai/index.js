@@ -209,7 +209,9 @@ export async function approveAction(registry, id) {
       rec.error = 'Station not found';
     } else {
       try {
-        rec.result = await registry.callStation(rec.stationId, rec.ocppAction, rec.payload);
+        rec.result = await registry.callStation(rec.stationId, rec.ocppAction, rec.payload, {
+          queueOffline: true,
+        });
         rec.status = 'executed';
         rec.executedAt = nowIso();
       } catch (err) {
@@ -288,7 +290,7 @@ export function buildInsights(registry) {
       kind: 'tariff',
       stationId: noTariff[0].stationId,
       ocppAction: 'SetDefaultTariff',
-      payload: { evseId: 1, tariffId: registry.tariffs[0]?.tariffId || 'MASSIVE-AC-DEFAULT' },
+      payload: defaultCsmsPayload('SetDefaultTariff', { stationId: noTariff[0].stationId }),
       reason: 'Ended sessions need a station default tariff for totalCost',
     });
   }

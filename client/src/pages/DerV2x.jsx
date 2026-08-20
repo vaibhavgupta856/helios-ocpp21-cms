@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import StationPicker from '../components/StationPicker.jsx';
+import CallResultPanel from '../components/CallResultPanel.jsx';
 import { pretty } from '../api.js';
 
 export default function DerV2x({
@@ -14,6 +15,31 @@ export default function DerV2x({
 }) {
   const [controlId, setControlId] = useState('der-1');
   const [signal, setSignal] = useState('0');
+  const [busy, setBusy] = useState('');
+  const [callResult, setCallResult] = useState(null);
+
+  const run = async (action, payload) => {
+    setBusy(action);
+    setCallResult(null);
+    try {
+      const res = await callStation(action, payload);
+      setCallResult({
+        action: res.action || action,
+        stationId: selectedStationId,
+        payload: res.payload ?? payload,
+        result: res.result,
+      });
+    } catch (err) {
+      setCallResult({
+        action,
+        stationId: selectedStationId,
+        payload,
+        error: err.message || String(err),
+      });
+    } finally {
+      setBusy('');
+    }
+  };
 
   return (
     <>
@@ -38,21 +64,33 @@ export default function DerV2x({
           <button
             type="button"
             className="btn primary"
-            onClick={() => callStation('SetDERControl', { isDefault: true, controlId, controlType: 'EnterService' })}
+            disabled={!!busy}
+            onClick={() => run('SetDERControl', { isDefault: true, controlId, controlType: 'EnterService' })}
           >
             SetDERControl
           </button>
-          <button type="button" className="btn" onClick={() => callStation('GetDERControl', { requestId: 1, controlId })}>
+          <button
+            type="button"
+            className="btn"
+            disabled={!!busy}
+            onClick={() => run('GetDERControl', { requestId: 1, controlId })}
+          >
             GetDERControl
           </button>
-          <button type="button" className="btn" onClick={() => callStation('ClearDERControl', { isDefault: true, controlId })}>
+          <button
+            type="button"
+            className="btn"
+            disabled={!!busy}
+            onClick={() => run('ClearDERControl', { isDefault: true, controlId })}
+          >
             ClearDERControl
           </button>
           <button
             type="button"
             className="btn"
+            disabled={!!busy}
             onClick={() =>
-              callStation('NotifyAllowedEnergyTransfer', { allowedEnergyTransfer: ['AC_single_phase', 'DC'] })
+              run('NotifyAllowedEnergyTransfer', { allowedEnergyTransfer: ['AC_single_phase', 'DC'] })
             }
           >
             Energy transfer
@@ -60,15 +98,17 @@ export default function DerV2x({
           <button
             type="button"
             className="btn"
-            onClick={() => callStation('AFRRSignal', { timestamp: new Date().toISOString(), signal: Number(signal) })}
+            disabled={!!busy}
+            onClick={() => run('AFRRSignal', { timestamp: new Date().toISOString(), signal: Number(signal) })}
           >
             AFRRSignal
           </button>
           <button
             type="button"
             className="btn"
+            disabled={!!busy}
             onClick={() =>
-              callStation('RequestBatterySwap', {
+              run('RequestBatterySwap', {
                 requestId: 1,
                 idToken: { idToken: 'RFID-MASSIVE-01', type: 'ISO14443' },
               })
@@ -77,6 +117,8 @@ export default function DerV2x({
             RequestBatterySwap
           </button>
         </div>
+        {busy ? <p className="muted">Sending {busy}…</p> : null}
+        <CallResultPanel result={callResult} onClear={() => setCallResult(null)} />
       </div>
       <div className="grid-2">
         <div className="card">

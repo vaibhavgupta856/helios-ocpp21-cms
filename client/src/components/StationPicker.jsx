@@ -21,7 +21,8 @@ export default function StationPicker({ stations, value, onChange }) {
           <optgroup key={label} label={label}>
             {cps.map((s) => (
               <option key={s.stationId} value={s.stationId}>
-                {s.stationId} {s.online ? '●' : '○'}
+                {s.stationId}{' '}
+                {s.simulated ? '(sim)' : s.online && s.transport !== 'sim' ? '(live)' : '(offline)'}
               </option>
             ))}
           </optgroup>
